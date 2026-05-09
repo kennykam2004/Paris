@@ -6,9 +6,11 @@
     <title>巴黎雙人行程規劃 2026</title>
     <meta name="description" content="巴黎雙人旅行行程、票務、美食與地圖快速查閱工具。">
     <meta name="theme-color" content="#0f172a">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Paris 2026">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icons/paris-icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="icons/paris-icon-180.png">
@@ -20,15 +22,15 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #0f172a; }
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #0f172a; overscroll-behavior-y: none; }
         .hide-scroll::-webkit-scrollbar { display: none; }
         .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
         .leaflet-popup-content-wrapper { border-radius: 8px; padding: 0; overflow: hidden; }
         .leaflet-popup-content { margin: 12px; font-family: inherit; }
-        .mobile-app-shell { padding-bottom: calc(5.75rem + env(safe-area-inset-bottom)); }
+        .mobile-app-shell { padding-top: max(0.75rem, env(safe-area-inset-top)); padding-bottom: calc(5.75rem + env(safe-area-inset-bottom)); }
         .mobile-bottom-nav { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
         @media (min-width: 768px) {
-            .mobile-app-shell { padding-bottom: 5rem; }
+            .mobile-app-shell { padding-top: 0; padding-bottom: 5rem; }
         }
     </style>
 </head>

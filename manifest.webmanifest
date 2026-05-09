@@ -1,14 +1,20 @@
 {
-  "name": "巴黎雙人行程規劃 2026",
+  "id": "./",
+  "name": "Paris 2026",
   "short_name": "Paris 2026",
-  "description": "巴黎雙人旅行行程、票務、美食與地圖快速查閱工具。",
+  "description": "Paris 2026 itinerary web app with maps, tickets, preparation notes, and food guide.",
   "lang": "zh-TW",
   "start_url": "./paris.html",
   "scope": "./",
   "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait",
   "background_color": "#f8fafc",
   "theme_color": "#0f172a",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "icons/paris-icon.svg",
