@@ -1,8 +1,9 @@
-const CACHE_NAME = "paris-itinerary-2026-v3";
+const CACHE_NAME = "paris-itinerary-2026-v4";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./paris.html",
+  "./app.js",
   "./manifest.webmanifest",
   "./icons/paris-icon.svg",
   "./icons/paris-icon-180.png",
