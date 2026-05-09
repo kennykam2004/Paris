@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>巴黎雙人行程規劃 2026</title>
+    <meta name="description" content="巴黎雙人旅行行程、票務、美食與地圖快速查閱工具。">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Paris 2026">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icons/paris-icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icons/paris-icon-180.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #0f172a; }
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        .leaflet-popup-content-wrapper { border-radius: 8px; padding: 0; overflow: hidden; }
+        .leaflet-popup-content { margin: 12px; font-family: inherit; }
+        .mobile-app-shell { padding-bottom: calc(5.75rem + env(safe-area-inset-bottom)); }
+        .mobile-bottom-nav { padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+        @media (min-width: 768px) {
+            .mobile-app-shell { padding-bottom: 5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- Data ---
+        const tripData = {
+            logistics: {
+                arrival: { date: "2026-05-14", time: "19:15", location: "戴高樂機場 (CDG)", flight: "MU569" },
+                departure: { date: "2026-05-22", time: "13:25", location: "戴高樂機場 (CDG)", flight: "MU554" },
+                flights: {
+                    outbound: [
+                        { route: "HKG → PVG", time: "07:30 - 10:15", flight: "MU726" },
+                        { route: "PVG → CDG", time: "12:55 - 19:15", flight: "MU569" }
+                    ],
+                    inbound: [
+                        { route: "CDG → PVG", time: "5/22 13:25 - 5/23 07:00", flight: "MU554" },
+                        { route: "PVG → HKG", time: "5/23 08:55 - 11:50", flight: "MU501" }
+                    ]
+                },
+                hotel: { 
+                    name: "Hôtel l'Inattendu", 
+                    address: "11 Bis, Rue Jules Chaplain, 75006 Paris",
+                    zone: "第6區 (左岸 / 蒙帕納斯與盧森堡公園交界)",
+                    mapUrl: "https://www.google.com/maps/search/?api=1&query=Hôtel+l'Inattendu+Paris",
+                    coords: [48.8430, 2.3310]
+                }
+            },
+            preparation: {
+                intro: "這份清單以你們夫婦二人的實際行程為核心：先處理不可補救的文件、票務與預約，再整理每天會用到的隨身物品。凡涉及入境、航班、票務時段、餐廳或營業安排，出發前仍應以官方網站或確認信再次核對。",
+                timeline: [
+                    {
+                        period: "出發前 2-3 個月",
+                        focus: "鎖定高風險預約",
+                        tasks: [
+                            "確認兩本護照效期、姓名拼音與機票/飯店/票券資料一致；入境規則請查官方來源。",
+                            "完成羅浮宮、凡爾賽宮 Passport、聖禮拜堂、橘園等 Paris Museum Pass 持有人時段預約。",
+                            "設定艾菲爾鐵塔開賣提醒；頂層電梯票通常需要準時搶票。",
+                            "整理 Le Calife 午餐遊船訂位確認信，確認報到時間、碼頭位置與服裝要求。",
+                            "如要慶生晚宴或 5/21 正式晚餐，提前訂位並把確認信加入行程資料夾。"
+                        ]
+                    },
+                    {
+                        period: "出發前 3-4 週",
+                        focus: "把資料變成可離線使用",
+                        tasks: [
+                            "建立兩人共用雲端資料夾：護照影本、機票、飯店、保險、Museum Pass 訂單、各景點預約 QR code。",
+                            "各自手機下載離線地圖：飯店、CDG、Paris City Vision Louvre、每日第一站、晚餐餐廳。",
+                            "確認信用卡海外交易、提款密碼與手機漫遊/eSIM；兩人不要只依賴同一張卡或同一部手機。",
+                            "把每日行程中的高風險節點標成行事曆提醒：5/17 08:00 取 Museum Pass、5/19 凡爾賽、5/22 退稅與航班。",
+                            "準備退稅資料保存方式：信封或文件袋、購物收據集中處、護照資料頁照片。"
+                        ]
+                    },
+                    {
+                        period: "出發前 1 週",
+                        focus: "行李與健康狀態",
+                        tasks: [
+                            "依 5/17-5/20 密集博物館行程準備好走的鞋、薄外套、雨具與小水瓶。",
+                            "兩人各自準備常用藥、止痛藥、腸胃藥、OK 繃與個人處方藥；處方藥保留原包裝。",
+                            "確認轉接頭、充電線、行動電源；每人至少一組可獨立支撐整天外出的充電方案。",
+                            "準備可放護照與卡片的貼身包，並把現金分散在兩人身上。",
+                            "檢查正式晚餐與 Chanel 康朋街行程需要的服裝、鞋履與可折疊購物袋。"
+                        ]
+                    },
+                    {
+                        period: "出發前 24 小時",
+                        focus: "最後核對",
+                        tasks: [
+                            "線上報到、確認航班狀態與行李規定；截圖保存登機證與座位資料。",
+                            "把第一晚抵達路線、飯店地址、CDG 至左岸計程車公定價 €65 截圖放到相簿最前面。",
+                            "確認 5/17 取 Museum Pass 的訂單憑證、地址、開門時間與客服電話可離線查看。",
+                            "手機、行動電源、相機與耳機充滿電；兩人互相確認對方也能開啟所有重要文件。",
+                            "把護照、信用卡、現金、藥品、充電線、票券確認信放入隨身包，不放托運行李。"
+                        ]
+                    }
+                ],
+                roles: [
+                    {
+                        title: "票務與文件主責",
+                        owner: "其中一人主控、另一人備份",
+                        tasks: [
+                            "保管 Museum Pass 訂單與各景點預約 QR code。",
+                            "每天出門前確認當日第一個預約時間與交通緩衝。",
+                            "5/22 退稅日集中管理收據、退稅單與護照。"
+                        ]
+                    },
+                    {
+                        title: "交通與日常主責",
+                        owner: "另一人主控、彼此交叉確認",
+                        tasks: [
+                            "管理 Google Maps 離線點位、RATP/城市交通查詢與回飯店路線。",
+                            "每天晚上檢查隔日天氣、步行量與是否需要雨具或薄外套。",
+                            "確認兩部手機都能上網、付款與互相定位。"
+                        ]
+                    }
+                ],
+                dayKits: [
+                    {
+                        title: "5/15 Le Calife 午餐遊船",
+                        items: ["訂位確認信", "碼頭地圖截圖", "輕便但整潔的服裝", "防風薄外套"]
+                    },
+                    {
+                        title: "5/17 Museum Pass 啟用日",
+                        items: ["Paris City Vision 取票憑證", "護照或購買人證件", "羅浮宮與橘園預約 QR code", "輕量早餐或小點心"]
+                    },
+                    {
+                        title: "5/19 凡爾賽 + Chanel",
+                        items: ["凡爾賽 Passport/時段票", "Ticket Métro-Train-RER 交通準備", "好走鞋", "購物護照與信用卡"]
+                    },
+                    {
+                        title: "5/22 退稅返程",
+                        items: ["護照", "退稅單與收據", "需備查商品", "登機證", "轉機與行李直掛確認"]
+                    }
+                ]
+            },
+            ticketing: {
+                strategy: {
+                    passCost: 105,
+                    passName: "巴黎博物館通行證 (Paris Museum Pass) 4日券",
+                    totalIndividualCost: 166.5,
+                    analysis: "已購買巴黎博物館通行證 4 日券 (96小時)，成本為 €105。依據 2026 年最新票價，本行程涵蓋之博物館單獨購票總額估算為 €166.5（包含羅浮宮非歐盟旅客 €32、凡爾賽宮旺季 Passport €35、聖禮拜堂非 EEA 成人 €22 等）。數學理論價差為 €61.5。",
+                    warning: "1. 通行證已購買，重點改為精準預約與現場取票控管；若 5/17 09:30 於羅浮宮首次掃描啟用，96 小時效期至 5/21 09:30，5/20 凱旋門仍在效期內。\n2. 凡爾賽宮更正：持 Paris Museum Pass 需預約/取得免費 Passport 時段票；日間花園音樂/噴泉節目通常包含於 Passport 內，重點不是現場另付花園費，而是提前完成預約。\n3. 通行證無免排隊特權，仍需於各官網搶訂通行證持有人預約時段或免費時段票。\n4. 聖母院內部參觀免費，線上預約為建議而非絕對強制；若無預約，需接受現場或虛擬排隊的不確定性。"
+                },
+                items: [
+                    {
+                        category: "4日通行證涵蓋設施 (Day 4 - Day 7 執行)",
+                        places: [
+                            { name: "羅浮宮 (Musée du Louvre)", price: "€32.00", rule: "強制預約時段 (2026起非歐盟旅客票價)", timing: "出發前 2-3 個月", link: "https://www.ticketlouvre.fr/" },
+                            { name: "凡爾賽宮 (Château de Versailles)", price: "€35.00", rule: "旺季 Passport；PMP 持有人需預約/取得免費 Passport 時段票", timing: "出發前 2-3 個月", link: "https://en.chateauversailles.fr/plan-your-visit/tickets-and-prices" },
+                            { name: "奧塞美術館 (Musée d'Orsay)", price: "€16.00", rule: "建議預約", timing: "出發前 1 個月", link: "https://billetterie.musee-orsay.fr/" },
+                            { name: "凱旋門 (Arc de Triomphe)", price: "€16.00", rule: "建議預約", timing: "出發前 1 個月", link: "https://www.paris-arc-de-triomphe.fr/" },
+                            { name: "傷兵院 (Les Invalides)", price: "€17.00", rule: "建議預約", timing: "出發前 1 個月", link: "https://www.musee-armee.fr/" },
+                            { name: "聖禮拜堂 (Sainte-Chapelle)", price: "€22.00", rule: "非 EEA 成人票價；持通行證仍需預約時段", timing: "出發前 1-2 個月", link: "https://www.sainte-chapelle.fr/" },
+                            { name: "先賢祠 (Panthéon)", price: "€16.00", rule: "現場或預約皆可", timing: "出發前 1 個月", link: "https://www.paris-pantheon.fr/" },
+                            { name: "橘園美術館 (Musée de l'Orangerie)", price: "€12.50", rule: "強制預約時段", timing: "出發前 1-2 個月", link: "https://billetterie.musee-orangerie.fr/" }
+                        ]
+                    },
+                    {
+                        category: "通行證不涵蓋設施 (必須單獨購票)",
+                        places: [
+                            { name: "艾菲爾鐵塔 (Tour Eiffel) 頂層電梯", price: "€36.70", rule: "極度嚴格預約制", timing: "準確於 60 天前開賣秒殺", link: "https://www.toureiffel.paris/en/rates-purchasing-tickets" },
+                            { name: "巴黎地下墓穴 (Catacombes)", price: "€31.00", rule: "極度嚴格預約制", timing: "準確於參觀日 7 天前開賣", link: "https://www.catacombes.paris.fr/en" },
+                            { name: "巴黎聖母院內部 (Notre-Dame)", price: "免費", rule: "免費參觀；建議線上預約以降低排隊風險", timing: "當日或參觀前 1-2 天留意開放", link: "https://www.notredamedeparis.fr/en/visit/reservation-free/" },
+                            { name: "Le Calife (午餐遊船)", price: "€67 - €108", rule: "已訂 5/15 中午；指定時段報到", timing: "以訂位確認信為準", link: "https://www.calife.com/" }
+                        ]
+                    }
+                ]
+            },
+            foodGuide: [
+                {
+                    day: 1, date: "5/14 (四)", zone: "第6區 / 蒙帕納斯 (抵達日)",
+                    meals: {
+                        breakfast: [],
+                        lunch: [],
+                        dinner: [
+                            { name: "Bouillon Chartier Montparnasse", rating: "4.0", reviews: "12,000+", type: "傳統平價食堂", desc: "主菜約 €10-15。無預約制，翻桌率極高，環境喧鬧且需與陌生人併桌。適合首日晚抵達快速用餐。", url: "https://www.google.com/maps/search/?api=1&query=Bouillon+Chartier+Montparnasse" },
+                            { name: "La Coupole", rating: "4.0", reviews: "8,500+", type: "歷史法式餐館", desc: "1927年開業。供應標準法式海鮮拼盤。消費結構包含顯著之歷史場地溢價，營業至深夜。", url: "https://www.google.com/maps/search/?api=1&query=La+Coupole+Paris" },
+                            { name: "Le Relais de l'Entrecôte Montparnasse", rating: "4.3", reviews: "4,200+", type: "牛排專賣", desc: "單一菜單（僅牛排與薯條），無預約。排隊時間約 30-45 分鐘，翻桌效率高。", url: "https://www.google.com/maps/search/?api=1&query=Le+Relais+de+l'Entrecôte+Montparnasse+Paris" }
+                        ]
+                    }
+                },
+                {
+                    day: 2, date: "5/15 (五)", zone: "第6區 / 拉丁區",
+                    meals: {
+                        breakfast: [
+                            { name: "Carette (Saint-Germain)", rating: "4.2", reviews: "1,500+", type: "傳統茶室 / 可頌", desc: "提供標準法式早餐與高品質可頌。定價包含聖日耳曼區地段溢價。", url: "https://www.google.com/maps/search/?api=1&query=Carette+Saint-Germain+Paris" },
+                            { name: "The Coffee", rating: "4.7", reviews: "500+", type: "現代咖啡館", desc: "極簡風格，提供高水準義式濃縮與手沖。無座位，為純外帶的高效選擇。", url: "https://www.google.com/maps/search/?api=1&query=The+Coffee+Saint-Germain+Paris" },
+                            { name: "Treize au Jardin", rating: "4.6", reviews: "3,200+", type: "早午餐", desc: "緊鄰盧森堡公園。主打美法融合早午餐，常態排隊，定價包含景觀溢價。", url: "https://www.google.com/maps/search/?api=1&query=Treize+au+Jardin+Paris" }
+                        ],
+                        lunch: [
+                            { name: "Le Calife (午餐遊船)", rating: "4.7", reviews: "2,000+", type: "塞納河遊船", desc: "登船點位於藝術橋下方。提供現做兩道/三道式法餐，航程近2小時。為今日排定之核心體驗。", url: "https://www.google.com/maps/search/?api=1&query=Le+Calife+Paris" },
+                            { name: "Au P'tit Grec", rating: "4.6", reviews: "5,800+", type: "法式可麗餅 (備案)", desc: "位於穆浮塔街。巨無霸鹹甜可麗餅 (€6-9)。常態排隊 30 分鐘，僅限外帶立食。", url: "https://www.google.com/maps/search/?api=1&query=Au+P'tit+Grec+Paris" },
+                            { name: "Café de la Nouvelle Mairie", rating: "4.4", reviews: "700+", type: "在地小酒館 (備案)", desc: "近先賢祠。大學生與教職員聚集地，提供未經觀光化修飾的傳統法餐。", url: "https://www.google.com/maps/search/?api=1&query=Café+de+la+Nouvelle+Mairie+Paris" }
+                        ],
+                        dinner: [
+                            { name: "Semilla", rating: "4.6", reviews: "650+", type: "現代法餐", desc: "開放式廚房，提供高水準、無過度拘束的現代法式料理。客單價約 €60-80。", url: "https://www.google.com/maps/search/?api=1&query=Semilla+Paris" },
+                            { name: "L'Avant Comptoir de la Mer", rating: "4.5", reviews: "1,800+", type: "海鮮Tapas / 立食", desc: "主打海鮮與自然酒。純立食無座位，環境喧鬧，適合快速高質量的晚餐體驗。", url: "https://www.google.com/maps/search/?api=1&query=L'Avant+Comptoir+de+la+Mer+Paris" },
+                            { name: "Le Procope", rating: "4.1", reviews: "8,200+", type: "歷史餐廳", desc: "號稱巴黎最古老咖啡館(1686年)。餐飲表現為標準化法餐，高度依賴歷史建築溢價。", url: "https://www.google.com/maps/search/?api=1&query=Le+Procope+Paris" }
+                        ]
+                    }
+                },
+                {
+                    day: 3, date: "5/16 (六)", zone: "蒙馬特 / 瑪黑區 / 里昂車站",
+                    meals: {
+                        breakfast: [
+                            { name: "Hardware Société Paris", rating: "4.6", reviews: "1,500+", type: "澳式早午餐", desc: "近聖心堂。提供非典型法式的高品質澳式早午餐與咖啡，週末常態排隊。", url: "https://www.google.com/maps/search/?api=1&query=Hardware+Société+Paris" },
+                            { name: "Café des Deux Moulins", rating: "4.1", reviews: "3,100+", type: "觀光咖啡館", desc: "電影《艾蜜莉的異想世界》拍攝地。餐點普通，主要購買電影場景之視覺打卡價值。", url: "https://www.google.com/maps/search/?api=1&query=Café+des+Deux+Moulins+Paris" },
+                            { name: "KB Coffee Roasters", rating: "4.6", reviews: "1,500+", type: "精品咖啡", desc: "南皮加勒區(近蒙馬特)。自體烘焙，提供專業義式與手沖咖啡，具備戶外座位。", url: "https://www.google.com/maps/search/?api=1&query=KB+Coffee+Roasters+Paris" }
+                        ],
+                        lunch: [
+                            { name: "L'As du Fallafel", rating: "4.5", reviews: "18,000+", type: "中東口袋餅", desc: "瑪黑區猶太美食指標。外帶價格低於內用。週五晚間至週六傍晚可能因安息日變動營業。", url: "https://www.google.com/maps/search/?api=1&query=L'As+du+Fallafel+Paris" },
+                            { name: "Marché des Enfants Rouges", rating: "4.5", reviews: "7,000+", type: "室內市場熟食", desc: "1615年建立之市場。內部多國料理攤位，環境擁擠且需立食或共桌。", url: "https://www.google.com/maps/search/?api=1&query=Marché+des+Enfants+Rouges+Paris" },
+                            { name: "Miznon", rating: "4.5", reviews: "2,200+", type: "地中海/以色列", desc: "烤白花椰菜與牛肉皮塔餅為指標。氛圍隨性喧鬧，點餐與取餐效率高。", url: "https://www.google.com/maps/search/?api=1&query=Miznon+Paris+Marais" }
+                        ],
+                        dinner: [
+                            { name: "Le Train Bleu", rating: "4.2", reviews: "12,000+", type: "經典法餐 (慶生首選)", desc: "位於里昂車站內。擁有極度華麗之19世紀美好年代裝潢。定價包含歷史空間溢價，具備極高儀式感，適合慶祝場合。", url: "https://www.google.com/maps/search/?api=1&query=Le+Train+Bleu+Paris" },
+                            { name: "Girafe", rating: "4.1", reviews: "3,800+", type: "海鮮/景觀 (慶生備案)", desc: "位於夏佑宮。擁有無遮蔽之艾菲爾鐵塔景觀。極難預約，需於開放瞬間搶位。高單價且具備 Dress Code。", url: "https://www.google.com/maps/search/?api=1&query=Girafe+Paris" },
+                            { name: "Le Ciel de Paris", rating: "3.9", reviews: "6,500+", type: "高空景觀 (慶生備案)", desc: "位於蒙帕納斯大樓56層。提供全景巴黎夜景。評分偏低主因為純賣景觀，餐點表現為標準化法餐。", url: "https://www.google.com/maps/search/?api=1&query=Le+Ciel+de+Paris" }
+                        ]
+                    }
+                },
+                {
+                    day: 4, date: "5/17 (日)", zone: "第1區 (羅浮宮 / 杜樂麗)",
+                    meals: {
+                        breakfast: [
+                            { name: "Bo&Mie (Louvre)", rating: "4.6", reviews: "3,500+", type: "現代烘焙坊", desc: "提供創新法式糕點與麵包。翻桌率高，為羅浮宮入館前的高效熱量補給點。", url: "https://www.google.com/maps/search/?api=1&query=Bo%26Mie+Louvre+Paris" },
+                            { name: "Télescope", rating: "4.6", reviews: "800+", type: "精品咖啡", desc: "位於皇家宮殿後方。專注於咖啡品質，無複雜餐點，空間極小，適合純粹的咖啡因攝取。", url: "https://www.google.com/maps/search/?api=1&query=Télescope+Coffee+Paris" },
+                            { name: "Angelina (Rivoli)", rating: "4.0", reviews: "14,000+", type: "歷史茶室", desc: "名產為熱巧克力與蒙布朗。常態排隊 45 分鐘，定價涵蓋極高比例的品牌溢價。", url: "https://www.google.com/maps/search/?api=1&query=Angelina+Rivoli+Paris" }
+                        ],
+                        lunch: [
+                            { name: "Sanukiya", rating: "4.5", reviews: "5,000+", type: "日式烏龍麵", desc: "位於羅浮宮旁。出餐極快，翻桌率極高。適合需快速解決午餐以銜接下午橘園行程之旅客。", url: "https://www.google.com/maps/search/?api=1&query=Sanukiya+Paris" },
+                            { name: "Bistrot Victoires", rating: "4.4", reviews: "4,500+", type: "平價傳統法餐", desc: "提供罕見之平價油封鴨腿。翻桌率高，桌距極近且環境喧鬧。", url: "https://www.google.com/maps/search/?api=1&query=Bistrot+Victoires+Paris" },
+                            { name: "Le Soufflé", rating: "4.3", reviews: "1,400+", type: "舒芙蕾專賣", desc: "提供鹹甜各式舒芙蕾。具備獨特性，但製作費時，不適合時間極度緊迫者。", url: "https://www.google.com/maps/search/?api=1&query=Le+Soufflé+Paris" }
+                        ],
+                        dinner: [
+                            { name: "L'Escargot Montorgueil", rating: "4.4", reviews: "4,500+", type: "法式蝸牛專賣", desc: "1832年創立，提供多種口味之烤蝸牛。位於徒步區，外觀具備歷史指標性。", url: "https://www.google.com/maps/search/?api=1&query=L'Escargot+Montorgueil+Paris" },
+                            { name: "Au Pied de Cochon", rating: "4.2", reviews: "8,500+", type: "傳統法餐 (24H)", desc: "以烤豬腳與洋蔥湯聞名。全天候 24 小時營業，能完美規避一般法餐的供餐時間限制。", url: "https://www.google.com/maps/search/?api=1&query=Au+Pied+de+Cochon+Paris" },
+                            { name: "Kong", rating: "4.0", reviews: "3,000+", type: "景觀餐廳", desc: "位於頂樓之玻璃穹頂餐廳，具備強烈視覺設計。餐飲為亞洲/法式融合，定價包含顯著景觀溢價。", url: "https://www.google.com/maps/search/?api=1&query=Kong+Paris" }
+                        ]
+                    }
+                },
+                {
+                    day: 5, date: "5/18 (一)", zone: "西岱島 / 第7區 (傷兵院)",
+                    meals: {
+                        breakfast: [
+                            { name: "Odette", rating: "4.4", reviews: "2,000+", type: "泡芙專賣店", desc: "鄰近聖母院，提供多種口味之法式小泡芙 (Choux)。建築外觀具備高視覺打卡價值。", url: "https://www.google.com/maps/search/?api=1&query=Odette+Paris" },
+                            { name: "Shakespeare and Company Café", rating: "4.3", reviews: "1,000+", type: "書店附屬咖啡", desc: "依附於著名獨立書店。提供簡單飲品與輕食，排隊人潮多基於品牌朝聖心態。", url: "https://www.google.com/maps/search/?api=1&query=Shakespeare+and+Company+Café+Paris" },
+                            { name: "A. Lacroix Pâtissier", rating: "4.7", reviews: "500+", type: "景觀甜點店", desc: "正對聖母院。提供高品質自製甜點，評分極高且未完全被觀光客淹沒，空間較小。", url: "https://www.google.com/maps/search/?api=1&query=A.+Lacroix+Pâtissier+Paris" }
+                        ],
+                        lunch: [
+                            { name: "Café de l'Esplanade", rating: "4.0", reviews: "1,500+", type: "景觀餐館", desc: "正對傷兵院草坪。定價包含景觀溢價，提供標準化法餐與三明治，適合參觀前快速用餐。", url: "https://www.google.com/maps/search/?api=1&query=Café+de+l'Esplanade+Paris" },
+                            { name: "Le Petit Châtelet", rating: "4.5", reviews: "1,000+", type: "木柴烤肉法餐", desc: "位於左岸河畔。以原始木柴生火烤肉為賣點，提供扎實的法式肉類料理。", url: "https://www.google.com/maps/search/?api=1&query=Le+Petit+Châtelet+Paris" },
+                            { name: "Arnaud Nicolas", rating: "4.6", reviews: "600+", type: "高級肉品熟食", desc: "法國最佳工匠 (MOF) 主理。建議外帶其法式肉派 (Pâté) 於傷兵院周邊綠地野餐，時間成本極低。", url: "https://www.google.com/maps/search/?api=1&query=Arnaud+Nicolas+Paris" }
+                        ],
+                        dinner: [
+                            { name: "Les Antiquaires", rating: "4.5", reviews: "3,200+", type: "傳統小酒館", desc: "提供標準且穩定的法餐配置（如紅酒燉牛肉）。服務效率高，於第 7 區屬合理定價。", url: "https://www.google.com/maps/search/?api=1&query=Les+Antiquaires+Paris" },
+                            { name: "La Fontaine de Mars", rating: "4.3", reviews: "2,500+", type: "經典法餐", desc: "歷史悠久，曾接待美國總統。保留傳統紅格紋桌布，以烤雞及西南法料理聞名。", url: "https://www.google.com/maps/search/?api=1&query=La+Fontaine+de+Mars+Paris" },
+                            { name: "Café des Officiers", rating: "4.0", reviews: "1,200+", type: "法式餐館", desc: "鄰近軍校站。提供全天候供餐，餐點穩定，適合結束傷兵院行程後就近用餐。", url: "https://www.google.com/maps/search/?api=1&query=Café+des+Officiers+Paris" }
+                        ]
+                    }
+                },
+                {
+                    day: 6, date: "5/19 (二)", zone: "凡爾賽 / 第1區",
+                    meals: {
+                        breakfast: [
+                            { name: "Colorova", rating: "4.6", reviews: "800+", type: "精緻早午餐", desc: "飯店周邊(第6區)。提供高品質現代法式糕點與豐盛早午餐，需留意出餐速度是否影響搭車。", url: "https://www.google.com/maps/search/?api=1&query=Colorova+Paris" },
+                            { name: "La Rotonde", rating: "4.1", reviews: "4,000+", type: "歷史咖啡館", desc: "蒙帕納斯大道指標。清晨提供標準可頌與咖啡，提供快速攝取熱量的地理便利性。", url: "https://www.google.com/maps/search/?api=1&query=La+Rotonde+Montparnasse+Paris" },
+                            { name: "Café Vavin", rating: "4.0", reviews: "1,000+", type: "傳統咖啡館", desc: "鄰近地鐵站入口。純粹的法式街角咖啡體驗，出餐極快。", url: "https://www.google.com/maps/search/?api=1&query=Café+Vavin+Paris" }
+                        ],
+                        lunch: [
+                            { name: "Ore - Ducasse", rating: "4.1", reviews: "1,500+", type: "宮殿精緻餐飲", desc: "位於凡爾賽宮內。核心價值為「購買時間權益」：預約此處可享有免排隊進入宮殿之特權。", url: "https://www.google.com/maps/search/?api=1&query=Ore+Ducasse+Versailles" },
+                            { name: "La Flottille", rating: "4.0", reviews: "1,200+", type: "花園景觀餐廳", desc: "位於凡爾賽大運河旁。提供簡餐與可麗餅，定價受惠於景觀之絕對獨佔性。", url: "https://www.google.com/maps/search/?api=1&query=La+Flottille+Versailles" },
+                            { name: "Le Pincemin", rating: "4.5", reviews: "300+", type: "現代法餐", desc: "位於凡爾賽市鎮。Top Chef 冠軍主廚經營，提供具高度性價比之法餐，需離開宮殿區域。", url: "https://www.google.com/maps/search/?api=1&query=Le+Pincemin+Versailles" }
+                        ],
+                        dinner: [
+                            { name: "Buddha-Bar", rating: "4.0", reviews: "6,000+", type: "亞洲融合/酒吧", desc: "近 Chanel 總店。以巨大佛像與 DJ 音樂為賣點，屬社交與夜生活導向，餐點非核心價值。", url: "https://www.google.com/maps/search/?api=1&query=Buddha-Bar+Paris" },
+                            { name: "Ferdi", rating: "4.1", reviews: "2,000+", type: "漢堡/混搭", desc: "以其起司漢堡與調酒聞名，空間極度狹小隱密。極難預約，排隊機率高。", url: "https://www.google.com/maps/search/?api=1&query=Ferdi+Paris" },
+                            { name: "Flottes", rating: "4.2", reviews: "1,500+", type: "傳統法式餐館", desc: "近協和廣場。提供洋蔥湯、生蠔等傳統菜色。服務穩定，於此區段屬合理之選擇。", url: "https://www.google.com/maps/search/?api=1&query=Brasserie+Flottes+Paris" }
+                        ]
+                    }
+                },
+                {
+                    day: 7, date: "5/20 (三)", zone: "第7區 / 第8區 (香榭大道)",
+                    meals: {
+                        breakfast: [
+                            { name: "Coutume", rating: "4.6", reviews: "1,200+", type: "精品咖啡", desc: "近奧塞美術館。巴黎第三波咖啡浪潮先驅，提供優質手沖、義式及西式健康早餐。", url: "https://www.google.com/maps/search/?api=1&query=Coutume+Babylone+Paris" },
+                            { name: "Kozy Bosquet", rating: "4.6", reviews: "2,200+", type: "現代早午餐", desc: "近鐵塔區。提供酪梨吐司、鬆餅等高視覺價值早午餐，常態需排隊。", url: "https://www.google.com/maps/search/?api=1&query=Kozy+Bosquet+Paris" },
+                            { name: "Café de l'Empire", rating: "4.1", reviews: "800+", type: "法式餐館", desc: "鄰近奧塞排隊區。提供標準法式可頌與熱飲，適合入館前最後一刻之熱量補充。", url: "https://www.google.com/maps/search/?api=1&query=Café+de+l'Empire+Paris" }
+                        ],
+                        lunch: [
+                            { name: "Francette", rating: "4.3", reviews: "1,800+", type: "船屋餐廳", desc: "停泊於鐵塔正下方。具備直接觀測鐵塔的物理優勢，定價包含高度水岸與景觀溢價。", url: "https://www.google.com/maps/search/?api=1&query=Francette+Paris" },
+                            { name: "Café du Trocadéro", rating: "4.0", reviews: "2,200+", type: "景觀咖啡館", desc: "正對夏佑宮廣場。極致的鐵塔觀測點，定價高昂，為純粹購買視覺體驗的消費行為。", url: "https://www.google.com/maps/search/?api=1&query=Café+du+Trocadéro+Paris" },
+                            { name: "L'Ami Jean", rating: "4.4", reviews: "2,100+", type: "巴斯克法餐", desc: "米其林推薦之小酒館。提供份量極大、口味濃郁的巴斯克料理（如著名米布丁），需預約。", url: "https://www.google.com/maps/search/?api=1&query=L'Ami+Jean+Paris" }
+                        ],
+                        dinner: [
+                            { name: "Le Relais de l'Entrecôte (Marbeuf)", rating: "4.3", reviews: "6,500+", type: "牛排專賣", desc: "香榭大道周邊。單一菜單，無限供應薯條。無預約，常態排隊 45-60 分鐘，屬高熱量商業模式。", url: "https://www.google.com/maps/search/?api=1&query=Le+Relais+de+l'Entrecôte+Marbeuf+Paris" },
+                            { name: "L'Atelier de Joël Robuchon Étoile", rating: "4.4", reviews: "1,500+", type: "米其林一星", desc: "近凱旋門。主打吧台座位與開放式廚房。客單價極高 (€150+)，屬體驗型精緻餐飲。", url: "https://www.google.com/maps/search/?api=1&query=L'Atelier+de+Joël+Robuchon+Etoile+Paris" },
+                            { name: "Le George", rating: "4.2", reviews: "2,000+", type: "米其林一星", desc: "位於喬治五世四季酒店內。地中海料理，環境極度奢華，需嚴格遵守 Dress Code，預算極高。", url: "https://www.google.com/maps/search/?api=1&query=Le+George+Paris" }
+                        ]
+                    }
+                },
+                {
+                    day: 8, date: "5/21 (四)", zone: "第14區 / 第6區",
+                    meals: {
+                        breakfast: [
+                            { name: "Hexagone Café", rating: "4.4", reviews: "500+", type: "獨立咖啡館", desc: "近地下墓穴。自體烘焙，空間安靜，提供高品質單品咖啡與基礎常溫糕點。", url: "https://www.google.com/maps/search/?api=1&query=Hexagone+Café+Paris" },
+                            { name: "Café du Rendez-Vous", rating: "4.2", reviews: "800+", type: "傳統餐館", desc: "位於 Denfert-Rochereau 站對面。提供標準早餐組合，地理位置完美銜接地下墓穴報到。", url: "https://www.google.com/maps/search/?api=1&query=Café+du+Rendez-Vous+Paris" },
+                            { name: "La Joie", rating: "4.6", reviews: "200+", type: "現代烘焙", desc: "提供非傳統的創意麵包與健康輕食，評價極高但座位數量極其有限。", url: "https://www.google.com/maps/search/?api=1&query=La+Joie+Bakery+Paris" }
+                        ],
+                        lunch: [
+                            { name: "La Cantine du Troquet Daguerre", rating: "4.4", reviews: "1,300+", type: "南法料理", desc: "知名主廚開設之平價分線，無接受預約。於高單價區提供具高度性價比之扎實餐飲。", url: "https://www.google.com/maps/search/?api=1&query=La+Cantine+du+Troquet+Daguerre+Paris" },
+                            { name: "Le Plomb du Cantal", rating: "4.4", reviews: "4,000+", type: "奧弗涅鄉土料理", desc: "以牽絲的起司馬鈴薯泥 (Aligot) 與大份量肉類聞名。熱量極高，翻桌率快。", url: "https://www.google.com/maps/search/?api=1&query=Le+Plomb+du+Cantal+Paris" },
+                            { name: "La Grande Épicerie de Paris", rating: "4.5", reviews: "7,000+", type: "頂級超市熟食", desc: "樂蓬馬歇附屬。匯集全球高端食材及現做熟食，可自由組合餐點，包含百貨品牌溢價。", url: "https://www.google.com/maps/search/?api=1&query=La+Grande+Épicerie+de+Paris" }
+                        ],
+                        dinner: [
+                            { name: "Restaurant Alliance", rating: "4.8", reviews: "750+", type: "米其林一星", desc: "左岸高端餐飲代表。空間極小，專注現代法式技術，服務客製化。需提前一個月訂位，預算 €180+。", url: "https://www.google.com/maps/search/?api=1&query=Restaurant+Alliance+Paris" },
+                            { name: "Ze Kitchen Galerie", rating: "4.6", reviews: "1,000+", type: "米其林一星", desc: "融合亞洲香料之當代法餐。風格較傳統星級餐廳輕鬆，定價於星級餐廳中具備競爭力。", url: "https://www.google.com/maps/search/?api=1&query=Ze+Kitchen+Galerie+Paris" },
+                            { name: "Guy Savoy", rating: "4.5", reviews: "1,500+", type: "米其林二星", desc: "位於巴黎鑄幣廠內。頂級法餐殿堂，需數月前預約，單人預算達 €300-500 以上，極度嚴格之 Dress Code。", url: "https://www.google.com/maps/search/?api=1&query=Guy+Savoy+Paris" }
+                        ]
+                    }
+                },
+                {
+                    day: 9, date: "5/22 (五)", zone: "第6區 (離境日)",
+                    meals: {
+                        breakfast: [
+                            { name: "Poilâne", rating: "4.2", reviews: "1,500+", type: "百年麵包店", desc: "巴黎最具指標性的酸種麵包店。適合購買作為機上乾糧或帶回國之伴手禮。", url: "https://www.google.com/maps/search/?api=1&query=Poilâne+Paris" },
+                            { name: "Bread & Roses", rating: "4.3", reviews: "600+", type: "英法茶室", desc: "提供精緻早午餐、麵包與茶飲。環境優雅，定價偏高，適合退房前之悠閒早餐。", url: "https://www.google.com/maps/search/?api=1&query=Bread+%26+Roses+Paris" },
+                            { name: "Café Cassette", rating: "4.1", reviews: "1,200+", type: "現代咖啡館", desc: "以大量花藝裝飾外觀。提供標準早餐組合，視覺打卡屬性極高，出餐速度穩定。", url: "https://www.google.com/maps/search/?api=1&query=Café+Cassette+Paris" }
+                        ],
+                        lunch: [],
+                        dinner: []
+                    }
+                }
+            ],
+            globalMustEats: [
+                { name: "Septime", zone: "第11區", rating: "4.5", reviews: "3,200+", type: "米其林一星/現代法餐", desc: "巴黎 Bistronomy (餐酒館) 風潮指標。極度難以預約（通常需提前三週於系統開放瞬間搶位）。", url: "https://www.google.com/maps/search/?api=1&query=Septime+Paris" },
+                { name: "Bistrot Paul Bert", zone: "第11區", rating: "4.5", reviews: "2,800+", type: "傳統法式小酒館", desc: "以其經典的胡椒牛排與巨型舒芙蕾聞名。拒絕過度精緻化，提供最傳統的法式大份量餐飲。", url: "https://www.google.com/maps/search/?api=1&query=Bistrot+Paul+Bert+Paris" },
+                { name: "Bouillon Julien", zone: "第10區", rating: "4.5", reviews: "9,500+", type: "新藝術風格食堂", desc: "具備1906年新藝術(Art Nouveau)極致裝潢。定價極低(主菜約€10-12)，為Chartier之外更具建築價值的平價選擇。", url: "https://www.google.com/maps/search/?api=1&query=Bouillon+Julien+Paris" },
+                { name: "Epicure", zone: "第8區", rating: "4.8", reviews: "1,600+", type: "米其林三星", desc: "位於 Le Bristol 酒店內。巴黎最頂級的傳統法餐殿堂之一，預算極高(€300-500+)，著裝規定極其嚴格。", url: "https://www.google.com/maps/search/?api=1&query=Epicure+Paris" },
+                { name: "Du Pain et des Idées", zone: "第10區", rating: "4.5", reviews: "4,200+", type: "傳統烘焙坊", desc: "以「開心果巧克力蝸牛麵包 (Escargot)」及柴燒麵包聞名。週末公休，常態排隊。", url: "https://www.google.com/maps/search/?api=1&query=Du+Pain+et+des+Idées+Paris" },
+                { name: "Cédric Grolet Opéra", zone: "第2區", rating: "4.1", reviews: "5,500+", type: "精品甜點", desc: "以極度擬真的水果雕塑甜點(Trompe-l'œil)聞名全球。排隊時間常態達1-2小時，具備極高品牌溢價。", url: "https://www.google.com/maps/search/?api=1&query=Cédric+Grolet+Opéra+Paris" },
+                { name: "Pink Mamma", zone: "第9區", rating: "4.6", reviews: "26,000+", type: "義式料理/景觀", desc: "頂樓之玻璃溫室設計極具視覺衝擊力。Google評論數大於2.5萬，高度依賴社群網路打卡效應。", url: "https://www.google.com/maps/search/?api=1&query=Pink+Mamma+Paris" },
+                { name: "Urfa Dürüm", zone: "第10區", rating: "4.7", reviews: "4,800+", type: "庫德族街頭美食", desc: "巴黎平價街頭美食之極限。現烤餅皮包裹碳烤肉類，定價低於€10，環境極度狹小擁擠。", url: "https://www.google.com/maps/search/?api=1&query=Urfa+Dürüm+Paris" },
+                { name: "Frenchie", zone: "第2區", rating: "4.6", reviews: "1,200+", type: "米其林一星", desc: "巴黎極難預約的現代法餐之一。其所在的 Rue du Nil 已發展成由同一主廚主導的美食聚落(包含外帶與酒吧)。", url: "https://www.google.com/maps/search/?api=1&query=Frenchie+Paris" },
+                { name: "Le Comptoir du Relais", zone: "第6區", rating: "4.2", reviews: "2,500+", type: "新派小酒館先驅", desc: "Yves Camdeborde主理，推動了巴黎Bistronomy風潮。平日晚餐無菜單且極難預約，午餐與週末不接受預約需現場排隊。", url: "https://www.google.com/maps/search/?api=1&query=Le+Comptoir+du+Relais+Paris" },
+                { name: "L'Ambroisie", zone: "第4區", rating: "4.6", reviews: "1,200+", type: "米其林三星", desc: "位於孚日廣場。被譽為法國傳統高級料理的最後堡壘。價格極端高昂，著裝要求嚴格，不追求現代擺盤。", url: "https://www.google.com/maps/search/?api=1&query=L'Ambroisie+Paris" },
+                { name: "Le Chateaubriand", zone: "第11區", rating: "4.2", reviews: "2,100+", type: "前衛餐酒館", desc: "曾入選世界50大餐廳。提供無菜單固定套餐，評分兩極化，主因其前衛手法常偏離傳統法餐預期。", url: "https://www.google.com/maps/search/?api=1&query=Le+Chateaubriand+Paris" },
+                { name: "Utopie", zone: "第11區", rating: "4.8", reviews: "4,500+", type: "人氣烘焙坊", desc: "以其黑芝麻蝸牛麵包及各式法式甜點聞名。評分極高且常態排隊，性價比佳。", url: "https://www.google.com/maps/search/?api=1&query=Boulangerie+Utopie+Paris" },
+                { name: "Breizh Café", zone: "第3區", rating: "4.5", reviews: "4,000+", type: "布列塔尼可麗餅", desc: "巴黎最知名的法式薄餅(Galette)專賣店之一。結合日式元素與頂級食材，建議搭配蘋果酒(Cidre)。", url: "https://www.google.com/maps/search/?api=1&query=Breizh+Café+Paris" },
+                { name: "L'Arpège", zone: "第7區", rating: "4.4", reviews: "2,000+", type: "米其林三星", desc: "由 Alain Passard 主理，以極致的蔬菜料理(自營農場)聞名全球。素食者之頂級選擇，預算極高。", url: "https://www.google.com/maps/search/?api=1&query=L'Arpège+Paris" },
+                { name: "Clown Bar", zone: "第11區", rating: "4.3", reviews: "1,800+", type: "現代小酒館", desc: "內部保留1920年代小丑磁磚壁畫（歷史古蹟）。提供具備高度創意的現代法式內臟及海鮮料理。", url: "https://www.google.com/maps/search/?api=1&query=Clown+Bar+Paris" },
+                { name: "Mokonuts", zone: "第11區", rating: "4.7", reviews: "700+", type: "咖啡/微型餐館", desc: "僅供應平日午餐與咖啡。以中東/地中海風格料理及現烤餅乾聞名，座位極少，必須預約。", url: "https://www.google.com/maps/search/?api=1&query=Mokonuts+Paris" },
+                { name: "Boulangerie Mamiche", zone: "第9區", rating: "4.6", reviews: "2,500+", type: "新世代烘焙", desc: "年輕世代經營的高人氣麵包店。其巴布卡(Babka)與各式泡芙具備極高話題性，常態排隊。", url: "https://www.google.com/maps/search/?api=1&query=Boulangerie+Mamiche+Paris" },
+                { name: "Pierre Hermé (Bonaparte)", zone: "第6區", rating: "4.5", reviews: "5,500+", type: "頂級馬卡龍", desc: "被譽為甜點界愛馬仕。此分店無內用，Ispahan(玫瑰荔枝覆盆子)為其指標性口味。", url: "https://www.google.com/maps/search/?api=1&query=Pierre+Hermé+Bonaparte+Paris" },
+                { name: "Berthillon", zone: "第4區", rating: "4.5", reviews: "4,800+", type: "指標冰淇淋", desc: "聖路易島上的傳奇冰淇淋。使用純天然食材，夏季排隊人潮極度可觀，具備顯著名氣溢價。", url: "https://www.google.com/maps/search/?api=1&query=Berthillon+Paris" }
+            ],
+            itinerary: [
+                {
+                    day: 1, date: "5/14 (四)", title: "澳門出發、抵達與入住",
+                    reminders: [
+                        "凌晨跨境專車：04:30 由海洋花園直接出發前往香港國際機場。前一晚需確認司機、車牌、上車點與兩人證件。",
+                        "生理疲勞控管：航班為 07:30，意味著將整夜無法進行常規睡眠。建議於航程第一段 (HKG-PVG) 強制補眠。",
+                        "計程車左岸公定價為 €65 (2026費率)，法規明定無需額外支付行李費或小費；若使用預約叫車，可能另有預約附加費。請直接至官方排班處搭乘。",
+                        "晚間抵達飯店，避免在街頭長時間停留查看手機，降低初抵達時的受竊風險。"
+                    ],
+                    activities: [
+                        { time: "04:30", zone: "澳門 (海洋花園)", desc: "跨境專車由海洋花園直接出發，前往香港國際機場 (HKG)。", transit: "跨境專車：經港珠澳大橋前往機場，全程以司機當日路線與口岸安排為準。", links: [{ type: "map", name: "香港國際機場", url: "https://www.google.com/maps/search/?api=1&query=Hong+Kong+International+Airport" }], precautions: ["前一晚確認司機聯絡方式、車牌、上車位置與可攜行李件數。護照、港澳出入境證件與機票截圖請放在隨身包最外層。"] },
+                        { time: "05:45", zone: "香港機場", desc: "抵達香港國際機場 (HKG) 第一航廈，立即辦理 MU726 航班報到。", details: { intro: "東方航空報到櫃檯作業。", highlights: ["務必向地勤確認行李是否直掛至戴高樂機場 (CDG)","一次取得兩段登機證：HKG-PVG 及 PVG-CDG"] }, precautions: ["抵達時間接近清晨報到尖峰，請優先完成托運、安檢與前往登機閘口。"] },
+                        { time: "07:30", desc: "東方航空 MU726 班機起飛，前往上海浦東 (PVG)。", precautions: ["航程約 2 小時 45 分鐘，建議全段用於睡眠補足體力。"] },
+                        { time: "12:55", desc: "於上海浦東 (PVG) 轉乘 MU569 班機前往巴黎戴高樂 (CDG)。" },
+                        { time: "19:15", zone: "近郊 (Zone 5)", desc: "東方航空 MU569 班機抵達戴高樂機場 (CDG)。", links: [{ type: "map", name: "戴高樂機場", url: "https://www.google.com/maps/search/?api=1&query=Aéroport+de+Paris-Charles+de+Gaulle", coords: [49.0097, 2.5479] }], precautions: ["海關通關時間高度受限於同時段抵達之亞洲/中東廣體客機數量，預估耗時 45-90 分鐘。"] },
+                        { time: "20:15", desc: "入境與提領行李。建議搭乘計程車直達飯店 (CDG 至左岸公定價 €65)。", transit: "計程車：車程約 45-60 分鐘。前往機場官方計程車排班處，勿理會大廳攬客司機；預約叫車可能另收附加費。", precautions: ["RER B 線北段行經塞納-聖但尼省 (93省)，為巴黎犯罪率偏高之行政區，夜間攜帶大件行李遭竊/搶機率顯著增加。不建議搭乘。"] },
+                        { time: "21:15", zone: "第6區", desc: "抵達 Hôtel l'Inattendu 辦理入住。", links: [{ type: "map", name: "Hôtel l'Inattendu", url: "https://www.google.com/maps/search/?api=1&query=Hôtel+l'Inattendu+Paris", coords: [48.8430, 2.3310] }], precautions: ["歐洲飯店夜間櫃檯人力縮減，需預先與飯店確認延遲入住 (Late Check-in) 流程。"] },
+                        { time: "21:45", zone: "第6/14區交界", desc: "於飯店附近蒙帕納斯大道簡單用餐。", transit: "步行：約 2-3 分鐘。", links: [{ type: "map", name: "蒙帕納斯大道", url: "https://www.google.com/maps/search/?api=1&query=Boulevard+du+Montparnasse+Paris", coords: [48.8427, 2.3298] }], precautions: ["深夜外出避免行走無路燈之巷弄。貴重物品不離身，手機避免置於戶外座位桌面。"] }
+                    ]
+                },
+                {
+                    day: 2, date: "5/15 (五)", title: "左岸街區與午餐遊船 (非通行證日)",
+                    reminders: [
+                        "時間成本事實：今日核心行程為 Le Calife 午餐遊船。遊船將消耗 12:00-15:00 最精華的日間時段，且 5 月份正午水面反光極強，需備妥物理防曬與太陽眼鏡。",
+                        "治安數據與手法：聖日耳曼區露天座位 (Terrasse) 為扒手重點目標。常見手法為藉由遞送報紙或問卷遮擋桌面視線，伺機竊取手機。"
+                    ],
+                    activities: [
+                        { time: "09:00", desc: "從 Hôtel l'Inattendu 出發。前往盧森堡公園方向。", transit: "步行：約 5 分鐘。", precautions: ["護照正本請鎖在飯店保險箱，隨身攜帶影本或手機拍照備查即可。"] },
+                        { time: "09:15", zone: "第6區", desc: "漫步盧森堡公園 (Jardin du Luxembourg) 與聖日耳曼德佩區 (Saint-Germain-des-Prés)。", links: [{ type: "map", name: "盧森堡公園", url: "https://www.google.com/maps/search/?api=1&query=Jardin+du+Luxembourg+Paris", coords: [48.8462, 2.3371] }], details: { intro: "由瑪麗·麥地奇 (Marie de' Medici) 於1612年下令建造。聖日耳曼區則為20世紀中葉存在主義哲學家活動據點。", highlights: ["觀察聖日耳曼區露天座位區 (Terrasse) 呈排並向外朝向街道的法式座椅排列邏輯"] }, precautions: ["露天座位為防竊重點區域，手機切勿放置於桌面邊緣。"] },
+                        { time: "11:45", desc: "抵達塞納河畔，準備登船。", transit: "步行：穿越左岸抵達藝術橋 (Pont des Arts) 旁之 Port des Saints-Pères。", links: [{ type: "map", name: "Le Calife 登船處", url: "https://www.google.com/maps/search/?api=1&query=Le+Calife+Paris", coords: [48.8581, 2.3355] }] },
+                        { time: "12:00", zone: "塞納河 (登船: 第6區)", desc: "Le Calife 遊船午餐報到與登船。12:45 準時啟航。", details: { intro: "Le Calife 為古典木造遊船，提供現做雙道/三道式法式午餐。", highlights: ["航線涵蓋巴黎聖母院至艾菲爾鐵塔之塞納河核心區段", "日間遊船具備高清晰度的實體建築辨識性，與夜間純觀測燈光結構之體驗不同"] }, precautions: ["遊船嚴格遵守啟航時間，逾時不候且無法退款。"] },
+                        { time: "14:45", desc: "遊船結束返回原碼頭。前往拉丁區 (Latin Quarter)。", transit: "步行：約 20 分鐘或搭乘公車。" },
+                        { time: "15:30", zone: "第5區", desc: "拉丁區核心與穆浮塔街 (Rue Mouffetard) 徒步探索。", links: [{ type: "map", name: "穆浮塔街", url: "https://www.google.com/maps/search/?api=1&query=Rue+Mouffetard+Paris", coords: [48.8415, 2.3495] }] },
+                        { time: "18:00", desc: "結束當日行程，返回 Hôtel l'Inattendu 休息。" }
+                    ]
+                },
+                {
+                    day: 3, date: "5/16 (六)", title: "蒙馬特、瑪黑區與慶生晚宴 (非通行證日)",
+                    reminders: [
+                        "蒙馬特防竊策略：聖心堂正前方階梯下方為「幸運繩黨」熱點，會強行將繩索套上手腕索取現金。策略：雙手插口袋，無視並快速通過。",
+                        "晚宴服儀與排程：晚間之慶生餐廳 (如 Le Train Bleu 等) 皆具備商務休閒 (Smart Casual) 之著裝要求。必須於傍晚保留返回飯店更換服裝之時間。"
+                    ],
+                    activities: [
+                        { time: "09:00", desc: "從 Hôtel l'Inattendu 出發，前往蒙馬特。", transit: "地鐵 M12 線 (Notre-Dame-des-Champs 至 Abbesses)，車程約 25 分鐘。" },
+                        { time: "09:30", zone: "第18區", desc: "參觀聖心堂 (Sacré-Cœur) 及小丘廣場。", transit: "步行：從 Abbesses 站出發。", links: [{ type: "map", name: "聖心堂", url: "https://www.google.com/maps/search/?api=1&query=Sacré-Cœur+Paris", coords: [48.8867, 2.3431] }], details: { intro: "建於蒙馬特高地130公尺處，圓頂高83公尺。建築於1914年完工。", highlights: ["建築外觀使用特有的 Château-Landon 石灰華岩，遇雨釋放方解石維持白淨", "廣場前方提供巴黎市區最高自然海拔點的南向全景"] }, precautions: ["Abbesses 地鐵站出站樓梯極度深長 (等同十數層樓)，強烈建議搭乘電梯。"] },
+                        { time: "13:00", zone: "第3/4區", desc: "離開蒙馬特，前往瑪黑區 (Le Marais) 探索與午餐。", transit: "地鐵 M12 轉 M1 或 M4 轉 M1。", links: [{ type: "map", name: "瑪黑區", url: "https://www.google.com/maps/search/?api=1&query=Le+Marais+Paris", coords: [48.8575, 2.3588] }], precautions: ["瑪黑區巷弄狹窄，週末人潮擁擠，需留意個人隨身物品。"] },
+                        { time: "17:30", desc: "結束瑪黑區行程，返回 Hôtel l'Inattendu 更換晚宴服裝。", transit: "地鐵 M4 線，車程約 20 分鐘。" },
+                        { time: "19:00", desc: "出發前往慶生餐廳 (以 Le Train Bleu 為例)。", transit: "地鐵或計程車/Uber。" },
+                        { time: "19:30", zone: "第12區", desc: "享用巴黎慶生晚宴。", links: [{ type: "map", name: "Le Train Bleu", url: "https://www.google.com/maps/search/?api=1&query=Le+Train+Bleu+Paris" }], details: { intro: "Le Train Bleu 位於巴黎里昂車站 (Gare de Lyon) 內，為1900年萬國博覽會所建，被列為法國歷史古蹟。", highlights: ["極度華麗之新巴洛克與美好年代風格壁畫與金箔雕飾", "傳統法式桌邊服務 (如火焰法式可麗餅)"] }, precautions: ["需提前預訂，並於備註註明慶生。男性避免短褲與運動鞋，請著休閒皮鞋與長褲。"] },
+                        { time: "22:30", desc: "晚宴結束，返回 Hôtel l'Inattendu。", transit: "深夜時段強制建議使用 Uber 或官方計程車 APP 叫車。" }
+                    ]
+                },
+                {
+                    day: 4, date: "5/17 (日)", title: "羅浮宮與橘園 (4日通行證啟用 - Day 1)",
+                    reminders: [
+                        "領票時間沉沒風險：因無法改成 e-ticket，今日需現場取 Museum Pass 實體票。將兌換安排於羅浮宮入場前 1.5 小時仍屬高風險決策；務必前一日再次確認 Paris City Vision 取票地址、開門時間與訂單憑證。",
+                        "計時啟動警告：今日為 Museum Pass 啟用的第一天。若 09:30 於羅浮宮第一次掃描條碼，96 小時效期將至 5/21 09:30。",
+                        "體力極限警告：羅浮宮內單日步數預估達 15,000 步以上。館內部分區域缺乏空調，建議採洋蔥式穿搭。"
+                    ],
+                    activities: [
+                        { time: "07:30", desc: "從 Hôtel l'Inattendu 提早出發，前往兌換實體票。", transit: "地鐵 M4 轉 M1 至 Tuileries 站，或搭乘公車 68 路。", precautions: ["週日清晨地鐵班距較長，需精確掌握搭車時間。"] },
+                        { time: "08:00", zone: "第1區", desc: "於 Paris City Vision Louvre 領取 Museum Pass 實體票。", links: [{ type: "map", name: "Paris City Vision", url: "https://www.google.com/maps/search/?api=1&query=Paris+City+Vision+Louvre" }], details: { intro: "因已購買且無法改成 e-ticket，必須現場取票。地址與取票窗口請以訂單確認信為準。", highlights: ["攜帶訂單憑證、護照或購買人證件", "確認票券效期將從稍後羅浮宮第一次刷卡起算 96 小時"] }, precautions: ["第三方平台之兌換櫃檯運作時間可能與大門開啟時間有落差，若遇排隊人潮請務必控管停留時間。建議前一晚備妥離線截圖與客服電話。"] },
+                        { time: "09:00", zone: "第1區", desc: "步行抵達羅浮宮 (Musée du Louvre)，排隊準備安檢。預約時段為 09:30。", transit: "步行：自兌換點至羅浮宮金字塔約 5-10 分鐘。", links: [{ type: "map", name: "羅浮宮", url: "https://www.google.com/maps/search/?api=1&query=Musée+du+Louvre+Paris", coords: [48.8606, 2.3376] }], details: { intro: "展廳總面積達72,735平方公尺，常設展品超過3.5萬件。", highlights: ["玻璃金字塔由673塊菱形與三角形面板構成", "德農館蒙娜麗莎展廳每日承受約1.5萬名遊客，觀賞距離限制在3公尺外"] }, precautions: ["通行證無免排隊特權，仍需通過金字塔主安檢線。蒙娜麗莎展區為全館扒手密度最高處，背包請改背胸前。"] },
+                        { time: "14:00", zone: "第1區", desc: "杜樂麗花園 (Jardin des Tuileries) 休息與周邊午餐。", transit: "步行：羅浮宮旁即是，約 5 分鐘。", links: [{ type: "map", name: "杜樂麗花園", url: "https://www.google.com/maps/search/?api=1&query=Jardin+des+Tuileries+Paris", coords: [48.8635, 2.3274] }], precautions: ["園區內常有假借問路或問卷連署之竊盜手法，直接搖頭並離開。"] },
+                        { time: "15:30", zone: "第1區", desc: "橘園美術館 (Musée de l'Orangerie) 欣賞莫內睡蓮 (強制預約時段)。", transit: "步行：穿越杜樂麗花園，約 10-15 分鐘。", links: [{ type: "map", name: "橘園美術館", url: "https://www.google.com/maps/search/?api=1&query=Musée+de+l'Orangerie+Paris", coords: [48.8638, 2.3226] }], details: { intro: "原為拿破崙三世供橘樹過冬的溫室。", highlights: ["兩個專為展示莫內8幅巨型《睡蓮》設計的橢圓形展廳，畫作總長近100公尺"] }, precautions: ["館方嚴格遵守預約時段，逾時15分鐘即可能被拒絕入場。"] },
+                        { time: "17:30", zone: "第8區", desc: "協和廣場 (Place de la Concorde)。", links: [{ type: "map", name: "協和廣場", url: "https://www.google.com/maps/search/?api=1&query=Place+de+la+Concorde+Paris", coords: [48.8656, 2.3212] }], precautions: ["廣場呈環狀且交通極度混亂，行人穿越道無明確號誌管制，過馬路需高度注意來車。"] },
+                        { time: "18:30", desc: "結束當日行程，返回 Hôtel l'Inattendu。" }
+                    ]
+                },
+                {
+                    day: 5, date: "5/18 (一)", title: "西岱島與傷兵院 (4日通行證 - Day 2)",
+                    reminders: [
+                        "休館日規避：今日為週一，凡爾賽宮與奧塞美術館休館。行程已針對此事實進行避開，排定正常營運之聖母院、聖禮拜堂與傷兵院。",
+                        "安檢成本：聖禮拜堂位於最高法院內，安檢規格等同機場，嚴禁違禁品。"
+                    ],
+                    activities: [
+                        { time: "08:45", desc: "從 Hôtel l'Inattendu 出發。", transit: "步行：至 Vavin 站約 3 分鐘。" },
+                        { time: "09:30", zone: "第4區 (西岱島)", desc: "參觀巴黎聖母院 (內部) 及聖禮拜堂 (Sainte-Chapelle)。", transit: "地鐵 M4 線：Vavin 站至 Cité 站。", links: [{ type: "map", name: "聖母院", url: "https://www.google.com/maps/search/?api=1&query=Cathédrale+Notre-Dame+de+Paris", coords: [48.8529, 2.3499] }, { type: "map", name: "聖禮拜堂", url: "https://www.google.com/maps/search/?api=1&query=Sainte-Chapelle+Paris", coords: [48.8554, 2.3450] }], details: { intro: "聖母院已於2024年底重新開放內部，免費參觀；線上預約可降低排隊風險，但不是絕對強制。聖禮拜堂為路易九世於1248年完工之皇家禮拜堂。", highlights: ["聖母院：觀察修復後之內部結構與木造尖塔", "聖禮拜堂：上層15扇高15公尺的13世紀彩繪玻璃窗，為極小化石造承重牆體之哥德工程指標"] }, precautions: ["聖母院建議於當日或前 1-2 天刷免費預約時段；若無時段，需接受現場或虛擬排隊。聖禮拜堂持通行證亦需預約時段，安檢隊伍通常耗時 15-30 分鐘。"] },
+                        { time: "11:30", zone: "第5區", desc: "先賢祠 (Panthéon) 參觀。隨後於拉丁區午餐。", transit: "步行：從西岱島過橋至左岸，約 15 分鐘。", links: [{ type: "map", name: "先賢祠", url: "https://www.google.com/maps/search/?api=1&query=Panthéon+Paris", coords: [48.8462, 2.3458] }], details: { intro: "18世紀新古典主義建築。1791年後轉為供奉法國偉人的陵墓。", highlights: ["中央圓頂下方懸掛長度67公尺、重達28公斤的傅科擺 (Foucault pendulum) 複製品", "地下墓室 (Crypt) 埋葬包含伏爾泰、盧梭、雨果、居禮夫人等70多位歷史人物"] } },
+                        { time: "14:30", zone: "第7區", desc: "前往傷兵院 (Les Invalides) 參觀拿破崙墓。", transit: "地鐵 M10 轉 M13 或 RER C 線，車程約 25 分鐘。", links: [{ type: "map", name: "傷兵院", url: "https://www.google.com/maps/search/?api=1&query=Les+Invalides+Paris", coords: [48.8566, 2.3126] }], details: { intro: "由路易十四於1670年下令建造的退伍軍人醫院與收容所。", highlights: ["圓頂正下方地下室中央安置拿破崙一世陵墓", "軍事博物館內部具備超過50萬件法國軍事兵器、火砲展示"] }, precautions: ["建築體積龐大且入口配置距離較遠，從入口步行至圓頂教堂需額外抓 10-15 分鐘步程。"] },
+                        { time: "17:00", desc: "結束當日行程，返回 Hôtel l'Inattendu。" }
+                    ]
+                },
+                {
+                    day: 6, date: "5/19 (二)", title: "凡爾賽宮與精品總店 (4日通行證 - Day 3)",
+                    reminders: [
+                        "凡爾賽 09:30 預約事實：自第6區飯店搭車至凡爾賽並步行至入口，物理耗時約 1.5 小時。為確保 09:00 能抵達第一道安檢線排隊，必須於 07:30 準時離開飯店。",
+                        "票務事實更正：5月份週二通常有音樂花園/噴泉相關日間節目。持 Paris Museum Pass 應預約/取得免費 Passport 時段票；Passport 通常涵蓋宮殿、Trianon 與日間花園節目，重點是提前完成預約而非現場另付花園費。",
+                        "交通票務更正：2026 巴黎交通票已改制，前往凡爾賽可購買 Ticket Métro-Train-RER（單程 €2.55，1-5區鐵路/地鐵適用，機場除外）。不可使用 Bus-Tram 票，也不要再以舊 T+ 票概念判斷。"
+                    ],
+                    activities: [
+                        { time: "07:30", desc: "從 Hôtel l'Inattendu 提早出發，前往凡爾賽。", transit: "RER C 線，總耗時約 1.5 小時 (含兩端步行)。" },
+                        { time: "09:00", zone: "近郊 (Zone 4)", desc: "抵達凡爾賽宮大門廣場，進入第一道實體安檢線排隊隊伍。", precautions: ["安檢隊伍常態延伸至戶外廣場，無遮蔽物。"] },
+                        { time: "09:30", zone: "近郊 (Zone 4)", desc: "凡爾賽宮 (Château de Versailles) 準時入場。", links: [{ type: "map", name: "凡爾賽宮", url: "https://www.google.com/maps/search/?api=1&query=Château+de+Versailles", coords: [48.8048, 2.1203] }], details: { intro: "1682至1789年間為法國實質政治中心。建築面積達63,154平方公尺。", highlights: ["鏡廳的357面鏡子，為17世紀玻璃製造技術的財富實力展示", "室內動線單一且擁擠，需消耗大量體力，參觀效益遞減速度極快"] }, precautions: ["宮殿內無冷氣且為單向動線，無法中途折返。持 Paris Museum Pass 仍需事先取得免費 Passport/預約時段，避免現場無法進入花園與 Trianon。"] },
+                        { time: "15:30", desc: "結束凡爾賽行程，搭乘 RER C 線返回巴黎市區。", transit: "RER C 線返回 Invalides 站轉地鐵，前往協和廣場區間。" },
+                        { time: "17:00", zone: "第1區", desc: "前往 Chanel 康朋街31號總店 (31 Rue Cambon)。", transit: "步行：從協和廣場 (Concorde) 步行約 5-10 分鐘。", links: [{ type: "map", name: "Chanel 康朋街總店", url: "https://www.google.com/maps/search/?api=1&query=Chanel+31+Rue+Cambon+Paris", coords: [48.8677, 2.3260] }], details: { intro: "Chanel 全球旗艦店，建築結構涵蓋精品店面、高級訂製服工坊及 Coco Chanel 故宅。全球僅此門市提供白色提袋與包裝盒（取代標準黑色）。", highlights: ["店內著名的裝飾藝術 (Art Deco) 風格鏡面迴旋樓梯 (Escalier 1/2 tour)", "白色限定包裝於二手市場具備微幅溢價效應"] }, precautions: ["排隊時間沉沒成本：客流量為全巴黎最高。未提前於官網預約時段 (Rendez-vous) 之旅客，傍晚常態需於店外排隊 45-90 分鐘。店鋪於 19:00 關門，18:00 後極大機率拒絕無預約客排隊。", "庫存事實：熱門包款 (如 Classic Flap, 2.55 之黑金配置) 處於常態性缺貨狀態，需評估排隊投入與獲得目標品項之機率。"] },
+                        { time: "19:00", desc: "結束當日行程，返回 Hôtel l'Inattendu。" }
+                    ]
+                },
+                {
+                    day: 7, date: "5/20 (三)", title: "奧塞、鐵塔、凱旋門與香榭大道 (4日通行證 - Day 4 終日)",
+                    reminders: [
+                        "計時終止更正：若 5/17 09:30 於羅浮宮啟用 Museum Pass，96 小時效期至 5/21 09:30。今日 5/20 的奧塞與凱旋門都仍在效期內；明日上午 09:30 後才會失效。",
+                        "艾菲爾鐵塔非通行證涵蓋範圍，仍需獨立購買電梯票。",
+                        "香榭大道治安數據：該路段為大巴黎地區針對「手提精品購物袋」遊客之竊盜/搶劫熱區。若有高單價採購，請務必將商品裝入無品牌標識之隱蔽提袋。"
+                    ],
+                    activities: [
+                        { time: "09:00", desc: "從 Hôtel l'Inattendu 出發。", transit: "步行或地鐵 M12 線。" },
+                        { time: "09:30", zone: "第7區", desc: "奧塞美術館 (Musée d'Orsay)。", transit: "地鐵 M12 線至 Solférino 站或步行。", links: [{ type: "map", name: "奧塞美術館", url: "https://www.google.com/maps/search/?api=1&query=Musée+d'Orsay+Paris", coords: [48.8600, 2.3258] }], details: { intro: "前身為為1900年萬國博覽會啟用的火車站。", highlights: ["南側中庭保留直徑巨大的金屬鑄造車站時鐘", "館藏涵蓋全球最大規模的印象派畫作實體"] }, precautions: ["館外排隊區無遮蔽物，需評估天氣狀況。"] },
+                        { time: "13:00", zone: "第7區", desc: "前往艾菲爾鐵塔 (Tour Eiffel) 與戰神廣場。(非通行證景點)", transit: "RER C 線從 Musée d'Orsay 至 Champ de Mars Eiffel Tower 站，車程約 15 分鐘。", links: [{ type: "map", name: "艾菲爾鐵塔", url: "https://www.google.com/maps/search/?api=1&query=Tour+Eiffel+Paris", coords: [48.8584, 2.2945] }], details: { intro: "含頂部天線總高330公尺，由18,000多個金屬部件及250萬個鉚釘接合而成。", highlights: ["二樓觀景台(115公尺)提供最佳實體建築辨識度，頂層(276公尺)僅適合宏觀地形觀測", "樓梯票價較低但需攀爬674階，且最高僅抵達第二層"] }, precautions: ["必須於預約時間前 30 分鐘抵達第一道實體安檢口，逾時票券將作廢。戰神廣場草皮常有兜售酒水之非法攤販，便衣警察取締時極易引發推擠踩踏。"] },
+                        { time: "16:30", zone: "第8區", desc: "前往凱旋門 (Arc de Triomphe) 登頂觀景。", transit: "公車 30 路或 22 路，或地鐵 M6 線至 Charles de Gaulle - Étoile 站。", links: [{ type: "map", name: "凱旋門", url: "https://www.google.com/maps/search/?api=1&query=Arc+de+Triomphe+Paris", coords: [48.8738, 2.2950] }], details: { intro: "高50公尺。為12條放射狀大道的交匯點。", highlights: ["無公共電梯，需攀爬284階無對外窗的螺旋狀石造樓梯", "頂部平台為檢視奧斯曼都市計畫「放射狀道路系統」之最佳幾何觀測點"] }, precautions: ["登頂需連續攀爬 284 階無窗戶之狹窄螺旋樓梯，心血管疾病或幽閉恐懼症者需嚴格評估。穿越圓環必須使用地下道，嚴禁直接穿越車道。"] },
+                        { time: "17:45", zone: "第8區", desc: "香榭麗舍大道 (Champs-Élysées) 商業區探索與採購。", transit: "步行：自凱旋門沿大道向東南方向移動。", links: [{ type: "map", name: "香榭麗舍大道", url: "https://www.google.com/maps/search/?api=1&query=Champs-Élysées+Paris", coords: [48.8700, 2.3068] }], details: { intro: "全長約 1.9 公里。西段高度商業化，集中全球精品旗艦店與快時尚品牌；東段為公園綠地。", highlights: ["觀察奧斯曼都市更新計畫下，建築立面嚴格的水平對齊規範", "各大旗艦店常態性實施排隊與人流管制"] }, precautions: ["大道兩側扒手集團常假扮遊客問路，並鎖定手提大型精品購物袋之旅客。大型店舖結帳時間通常超過 30 分鐘，請控管停留時間。"] },
+                        { time: "19:30", desc: "結束當日行程，返回 Hôtel l'Inattendu。" }
+                    ]
+                },
+                {
+                    day: 8, date: "5/21 (四)", title: "地下墓穴與第6區採購",
+                    reminders: [
+                        "退稅法規：單一店家單日消費滿 €100 方達退稅門檻。辦理退稅單件時，依據海關規範，必須出示護照「實體正本」，手機翻拍之照片無效。",
+                        "晚宴服儀要求 (Dress Code)：米其林星級或正式法式餐廳拒絕接待穿著運動服飾、短褲、運動鞋或拖鞋之顧客。男性需著有領襯衫、長褲與休閒皮鞋。",
+                        "地下墓穴物理限制：地底恆溫 14°C 且濕度極高。內部無任何公共洗手間，且步行動線單一無法中途折返。"
+                    ],
+                    activities: [
+                        { time: "09:30", desc: "從 Hôtel l'Inattendu 出發。" },
+                        { time: "10:00", zone: "第14區", desc: "巴黎地下墓穴 (Catacombes de Paris)。(非通行證景點)", transit: "步行或搭乘地鐵 M4 轉 M6 至 Denfert-Rochereau 站。", links: [{ type: "map", name: "巴黎地下墓穴", url: "https://www.google.com/maps/search/?api=1&query=Catacombes+de+Paris", coords: [48.8338, 2.3324] }], details: { intro: "深入地表20公尺，存放約600萬具遺骨。", highlights: ["依股骨、頭骨等部位進行幾何圖形排列"] }, precautions: ["地底恆溫 14°C，濕度極高，需自備薄外套。內部無洗手間，全程需步行約 1.5 公里，無休息區。"] },
+                        { time: "13:30", zone: "第7區", desc: "前往樂蓬馬歇百貨 (Le Bon Marché) 或周邊進行伴手禮採購。", transit: "地鐵 M4 或 M12 線，車程約 15 分鐘。", links: [{ type: "map", name: "樂蓬馬歇百貨", url: "https://www.google.com/maps/search/?api=1&query=Le+Bon+Marché+Paris", coords: [48.8510, 2.3245] }], details: { intro: "1852年開業之首家現代百貨公司。", highlights: ["內部具歷史意義的鐵件玻璃手扶梯結構"] }, precautions: ["辦理退稅需單店單日消費滿 €100，且必須出示護照正本（不接受手機翻拍照片）。部分精品店採嚴格流量管制，需排隊入場。"] },
+                        { time: "19:00", desc: "安排一頓正式的法式晚餐。", precautions: ["米其林星級或正式餐廳晚餐具備 Dress Code (服裝儀容規定)，男性需著長褲與包鞋，男女均避免運動服飾及拖鞋。"] },
+                        { time: "21:30", desc: "晚餐結束，返回 Hôtel l'Inattendu。", transit: "考量夜間步行風險，建議搭乘 Uber 或 G7 官方計程車返回飯店。" }
+                    ]
+                },
+                {
+                    day: 9, date: "5/22 (五)", title: "退房與返程",
+                    reminders: [
+                        "退稅事實風險：機場 PABLO 退稅機台掃描失敗率約存在 5-10%。機器掃描失敗時，必須轉往人工海關櫃檯排隊（耗時常達 30-60 分鐘）。抵達機場時間不應低於起飛前 3 小時。",
+                        "行李直掛確認：轉機時間 (PVG) 僅 1 小時 55 分鐘，屬於極高失接風險之區間。於戴高樂機場 (CDG) 報到櫃台，必須取得地勤確認行李已直掛至最終目的地 (HKG)。"
+                    ],
+                    activities: [
+                        { time: "08:30", desc: "Hôtel l'Inattendu 退房。確認行李件數。", precautions: ["退房時需確認是否已結清每人每晚的巴黎城市稅 (Taxe de séjour)。"] },
+                        { time: "09:00", desc: "出發前往戴高樂機場 (CDG)。建議搭乘計程車/Uber，或至 Port-Royal 站搭乘 RER B 線。", transit: "計程車：約 45-60 分鐘 (左岸至 CDG 公定價 €65；預約叫車可能另收附加費)。", links: [{ type: "map", name: "Port-Royal 站 (RER B)", url: "https://www.google.com/maps/search/?api=1&query=Gare+de+Port-Royal+Paris", coords: [48.8396, 2.3378] }] },
+                        { time: "10:25", zone: "近郊 (Zone 5)", desc: "抵達機場。需預留3小時辦理退稅手續及安檢 (班機時間 13:25)。", links: [{ type: "map", name: "戴高樂機場", url: "https://www.google.com/maps/search/?api=1&query=Aéroport+de+Paris-Charles+de+Gaulle", coords: [49.0097, 2.5479] }], precautions: ["退稅事實風險：機場 PABLO 退稅機台掃描失敗率約存在 5-10%，失敗時必須排人工海關，極度耗時。退稅物品需隨身攜帶或放在行李最上層備查。"] },
+                        { time: "13:25", desc: "東方航空 MU554 班機起飛，經上海 (PVG) 轉機返回香港 (HKG)。", precautions: ["上海轉機時間僅 1 小時 55 分鐘。務必於戴高樂機場地勤報到時，確認行李已直掛至香港 (HKG)。抵達 PVG 後須優先前往轉機通道，前段班機若延遲超過 30 分鐘即存在失接風險。"] }
+                    ]
+                }
+            ]
+        };
+
+        // --- Icons ---
+        const PlaneIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>;
+        const HotelIcon = () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>;
+        const ClockIcon = () => <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>;
+        const AlertIcon = () => <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>;
+        const MapPinIcon = () => <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.243-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>;
+        const TicketIcon = () => <svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z"></path></svg>;
+        const TransitIcon = () => <svg className="w-4 h-4 text-emerald-600 mr-1.5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>;
+        const ChevronDownIcon = ({ className }) => <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>;
+        const UtensilsIcon = ({ className }) => <svg className={className || "w-3.5 h-3.5 mr-1"} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3v8a4 4 0 004 4h0a4 4 0 004-4V3m-4 18v-7m9-8a3 3 0 013 3v13h-2V11A2 2 0 0016 9V3h2z"></path></svg>;
+        const AlertTriangleIcon = ({ className }) => <svg className={className || "w-3.5 h-3.5 mr-1"} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>;
+        const InfoIcon = () => <svg className="w-4 h-4 text-blue-600 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>;
+        const MapIcon = ({ className }) => <svg className={className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>;
+        const CreditCardIcon = ({ className }) => <svg className={className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>;
+        const CalendarIcon = ({ className }) => <svg className={className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>;
+        const ClipboardIcon = ({ className }) => <svg className={className || "w-5 h-5"} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5h6m-7 4h8m-8 4h6m-7 8h10a2 2 0 002-2V7a2 2 0 00-2-2h-1.5A2.5 2.5 0 0013 3h-2a2.5 2.5 0 00-2.5 2H7a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>;
+        const SunriseIcon = ({ className }) => <svg className={className || "w-4 h-4"} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>;
+        const SunIcon = ({ className }) => <svg className={className || "w-4 h-4"} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>;
+        const MoonIcon = ({ className }) => <svg className={className || "w-4 h-4"} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>;
+
+        // --- Components ---
+        const GlobalMapModal = ({ isOpen, onClose, onNavigate, data }) => {
+            const mapRef = useRef(null);
+            const mapInstance = useRef(null);
+
+            useEffect(() => {
+                if (!isOpen || !mapRef.current) return;
+
+                if (!mapInstance.current) {
+                    mapInstance.current = L.map(mapRef.current).setView([48.8566, 2.3422], 13); // Default view: Central Paris
+                    
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; OpenStreetMap contributors',
+                        maxZoom: 19
+                    }).addTo(mapInstance.current);
+
+                    if (data.logistics.hotel.coords) {
+                        const hotelIcon = L.divIcon({
+                            html: '<div style="background-color: #1e293b; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"><svg style="width: 14px; height: 14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg></div>',
+                            className: '',
+                            iconSize: [28, 28],
+                            iconAnchor: [14, 14]
+                        });
+                        L.marker(data.logistics.hotel.coords, { icon: hotelIcon, zIndexOffset: 1000 })
+                            .bindPopup(`<b>${data.logistics.hotel.name}</b><br>住宿地點`)
+                            .addTo(mapInstance.current);
+                    }
+
+                    data.itinerary.forEach(day => {
+                        day.activities.forEach(activity => {
+                            if (activity.links) {
+                                activity.links.forEach(link => {
+                                    if (link.type === 'map' && link.coords) {
+                                        const markerColor = day.day % 2 === 0 ? '#2563eb' : '#047857';
+                                        const markerIcon = L.divIcon({
+                                            html: `<div style="background-color: ${markerColor}; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);">${day.day}</div>`,
+                                            className: '',
+                                            iconSize: [24, 24],
+                                            iconAnchor: [12, 12]
+                                        });
+                                        L.marker(link.coords, { icon: markerIcon })
+                                            .bindPopup(`<b>${link.name}</b><br>${day.date}`)
+                                            .addTo(mapInstance.current);
+                                    }
+                                });
+                            }
+                        });
+                    });
+                }
+
+                return () => {
+                    if (mapInstance.current) {
+                        mapInstance.current.remove();
+                        mapInstance.current = null;
+                    }
+                };
+            }, [isOpen, data]);
+
+            if (!isOpen) return null;
+
+            return (
+                <div className="fixed inset-0 z-[1000] bg-black/40 flex flex-col" onClick={onClose}>
+                    <div className="hidden md:flex md:flex-col md:flex-1 md:bg-white md:shadow-2xl md:overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-center py-2 px-3 border-b border-slate-200 bg-white shadow-sm relative z-10">
+                            <h2 className="text-sm font-bold text-slate-800 flex items-center">
+                                <MapIcon className="w-4 h-4 mr-1.5 text-blue-600" />
+                                巴黎總覽景點地圖 (依據日期)
+                            </h2>
+                            <button onClick={onClose} className="inline-flex items-center gap-1.5 px-3 py-1.5 hover:bg-slate-200 rounded-full text-slate-600 transition-colors bg-slate-100 text-sm font-semibold">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                關閉
+                            </button>
+                        </div>
+                        <div className="py-1.5 px-3 bg-amber-50 border-b border-amber-200 text-[11px] md:text-xs text-amber-800 flex items-start relative z-10 leading-tight">
+                            <AlertTriangleIcon className="w-3.5 h-3.5 mr-1.5 flex-shrink-0 mt-0.5 text-amber-600" />
+                            <p><strong>風險與事實提示：</strong>初始縮放限於市中心。此圖層依賴網路連線，無實時導航功能。步行或搭車請改用 Google Maps。</p>
+                        </div>
+                        <div className="flex-1 w-full relative z-0" ref={mapRef}></div>
+                    </div>
+
+                    <div className="md:hidden flex flex-col h-full" onClick={(e) => e.stopPropagation()}>
+                        <div className="mt-auto h-[92dvh] bg-white rounded-t-3xl overflow-hidden shadow-2xl flex flex-col">
+                            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-white">
+                                <div>
+                                    <div className="text-[11px] font-bold text-blue-600 uppercase tracking-wide">巴黎總覽景點地圖</div>
+                                    <h2 className="text-sm font-bold text-slate-800">依據日期</h2>
+                                </div>
+                                <button onClick={onClose} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-slate-100 text-slate-700 text-sm font-bold">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                    關閉地圖
+                                </button>
+                            </div>
+                            <div className="py-2 px-4 bg-amber-50 border-b border-amber-200 text-[11px] text-amber-800 flex items-start leading-tight">
+                                <AlertTriangleIcon className="w-3.5 h-3.5 mr-1.5 flex-shrink-0 mt-0.5 text-amber-600" />
+                                <p><strong>提示：</strong>這是總覽圖，不是即時導航。移動請以 Google Maps 為準。</p>
+                            </div>
+                            <div className="flex-1 w-full relative z-0 min-h-0" ref={mapRef}></div>
+                            <div className="border-t border-slate-200 bg-white px-3 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+                                <div className="grid grid-cols-3 gap-2">
+                                    <button onClick={() => onNavigate && onNavigate('overview')} className="rounded-xl bg-slate-100 text-slate-800 text-sm font-bold py-3">行程</button>
+                                    <button onClick={() => onNavigate && onNavigate('ticketing')} className="rounded-xl bg-slate-100 text-slate-800 text-sm font-bold py-3">票務</button>
+                                    <button onClick={onClose} className="rounded-xl bg-blue-600 text-white text-sm font-bold py-3">關閉地圖</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const ActivityItem = ({ activity }) => {
+            const [isExpanded, setIsExpanded] = useState(false);
+            const [isPrecautionsExpanded, setIsPrecautionsExpanded] = useState(false);
+
+            return (
+                <div className="flex">
+                    <div className="flex-shrink-0 w-16 md:w-20 pt-1">
+                        <div className="flex items-center text-xs md:text-sm font-semibold text-slate-500">
+                            <ClockIcon />
+                            <span className="ml-1">{activity.time}</span>
+                        </div>
+                    </div>
+                    <div className="relative pl-4 md:pl-6 border-l-2 border-slate-200 w-full pb-6">
+                        <div className="absolute w-2 h-2 bg-slate-400 rounded-full -left-[5px] top-1.5"></div>
+                        <p className="text-sm md:text-base text-slate-800 leading-relaxed">{activity.desc}</p>
+                        
+                        {activity.transit && (
+                            <div className="mt-2.5 flex items-start text-sm font-medium text-emerald-700 bg-emerald-50 rounded-md p-2.5 border border-emerald-100">
+                                <TransitIcon />
+                                <span className="leading-snug">{activity.transit}</span>
+                            </div>
+                        )}
+
+                        {activity.links && activity.links.length > 0 && (
+                            <div className="flex flex-wrap mt-3 gap-2">
+                                {activity.links.map((link, lIdx) => (
+                                    <a key={lIdx} href={link.url} target="_blank" rel="noopener noreferrer" 
+                                        className="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded border transition-colors no-print bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200">
+                                        <MapPinIcon />
+                                        {link.name}
+                                    </a>
+                                ))}
+                            </div>
+                        )}
+
+                        {(activity.details || activity.precautions) && (
+                            <div className="mt-4">
+                                <div className="flex flex-wrap gap-2 no-print">
+                                    {activity.details && (
+                                        <button onClick={() => setIsExpanded(!isExpanded)} className="flex items-center text-xs font-medium text-slate-600 hover:text-slate-900 transition-colors bg-white border border-slate-200 shadow-sm rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-slate-200">
+                                            <span className="mr-1">{isExpanded ? '隱藏景點介紹' : '展開景點介紹'}</span>
+                                            <ChevronDownIcon className={`w-3.5 h-3.5 transform transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                        </button>
+                                    )}
+                                    {activity.precautions && activity.precautions.length > 0 && (
+                                        <button onClick={() => setIsPrecautionsExpanded(!isPrecautionsExpanded)} className="flex items-center text-xs font-medium text-rose-700 hover:text-rose-900 transition-colors bg-rose-50 border border-rose-200 shadow-sm rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-rose-200">
+                                            <AlertTriangleIcon className="w-3.5 h-3.5 mr-1" />
+                                            <span className="mr-1">{isPrecautionsExpanded ? '隱藏注意事項' : '展開注意事項'}</span>
+                                            <ChevronDownIcon className={`w-3.5 h-3.5 transform transition-transform duration-200 ${isPrecautionsExpanded ? 'rotate-180' : ''}`} />
+                                        </button>
+                                    )}
+                                </div>
+                                
+                                {activity.details && (
+                                    <div className={`mt-2.5 bg-slate-50 border border-slate-200 rounded-lg p-4 text-sm transition-all print-expand print-break-inside-avoid ${isExpanded ? 'block' : 'hidden'}`}>
+                                        <div className="mb-3">
+                                            <strong className="text-slate-800 block mb-1">景點背景數據：</strong>
+                                            <p className="text-slate-600 leading-relaxed">{activity.details.intro}</p>
+                                        </div>
+                                        <div>
+                                            <strong className="text-slate-800 block mb-1">遊覽與觀測重點：</strong>
+                                            <ul className="list-disc pl-5 space-y-1.5 text-slate-600">
+                                                {activity.details.highlights.map((h, i) => <li key={i}>{h}</li>)}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {activity.precautions && (
+                                    <div className={`mt-2.5 bg-rose-50/50 border border-rose-200 rounded-lg p-4 text-sm transition-all print-expand print-break-inside-avoid ${isPrecautionsExpanded ? 'block' : 'hidden'}`}>
+                                        <strong className="text-rose-900 block mb-2 flex items-center">
+                                            <AlertTriangleIcon /> 風險與事實警告：
+                                        </strong>
+                                        <ul className="list-disc pl-5 space-y-1.5 text-rose-800">
+                                            {activity.precautions.map((precaution, idx) => (
+                                                <li key={idx} className="leading-relaxed">{precaution}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const OverviewView = ({ data, onDayClick }) => {
+            return (
+                <div className="space-y-6 animate-in fade-in duration-500">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {data.map((day) => (
+                            <div 
+                                key={day.day} 
+                                onClick={() => onDayClick(day.day)}
+                                className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:border-blue-400 hover:shadow-md cursor-pointer transition-all group relative overflow-hidden"
+                            >
+                                <div className="absolute top-0 left-0 w-1 h-full bg-slate-200 group-hover:bg-blue-500 transition-colors"></div>
+                                <div className="flex justify-between items-center mb-3">
+                                    <span className="font-mono text-xs font-bold bg-slate-100 text-slate-600 px-2 py-1 rounded border border-slate-200">Day {day.day}</span>
+                                    <span className="text-sm font-bold text-slate-800">{day.date}</span>
+                                </div>
+                                <h3 className="font-bold text-blue-700 mb-4 text-base leading-snug">{day.title}</h3>
+                                <ul className="text-sm text-slate-600 space-y-2">
+                                    {day.activities.filter(a => a.details || a.links || a.zone).slice(0, 4).map((a, i) => {
+                                        const shortDesc = a.desc.split(/[。(（]/)[0].replace('從 Hôtel l\'Inattendu 出發', '飯店出發').trim();
+                                        return (
+                                            <li key={i} className="flex items-start">
+                                                <span className="mr-2 text-slate-400 mt-0.5">•</span>
+                                                <div className="flex flex-col">
+                                                    {a.zone && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded-sm w-max mb-0.5 border border-slate-200">{a.zone}</span>}
+                                                    <span className="truncate leading-tight" title={shortDesc}>{shortDesc}</span>
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                                <div className="mt-5 pt-3 border-t border-slate-50 text-right">
+                                    <span className="text-xs text-blue-600 font-medium group-hover:underline flex items-center justify-end">
+                                        <ClockIcon /> <span className="ml-1">查看詳細時間軸</span>
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const DaySummary = ({ dayData }) => {
+            const keyActivities = dayData.activities.filter(activity => activity.time && activity.desc);
+            const firstActivity = keyActivities[0];
+            const lastActivity = keyActivities[keyActivities.length - 1];
+            const transitActivity = keyActivities.find(activity => activity.transit);
+            const riskReminder = dayData.reminders && dayData.reminders[0];
+
+            return (
+                <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                        <div className="text-xs font-bold text-slate-500 mb-1">今日主軸</div>
+                        <div className="text-sm font-semibold text-slate-900 leading-snug">{dayData.title}</div>
+                        {firstActivity && lastActivity && (
+                            <div className="text-xs text-slate-500 mt-2">{firstActivity.time} 開始，{lastActivity.time} 結束</div>
+                        )}
+                    </div>
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                        <div className="text-xs font-bold text-blue-700 mb-1">今日必留意</div>
+                        <p className="text-sm text-blue-900 leading-relaxed line-clamp-3">{riskReminder || "依時間軸順序執行，出門前再核對官方時段與交通狀態。"}</p>
+                    </div>
+                    <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3">
+                        <div className="text-xs font-bold text-emerald-700 mb-1">交通起手式</div>
+                        <p className="text-sm text-emerald-900 leading-relaxed line-clamp-3">{transitActivity ? transitActivity.transit : "以步行或當日地鐵/公車查詢為準。"}</p>
+                    </div>
+                </div>
+            );
+        };
+
+        const TicketingView = ({ data }) => {
+            const getTicketStatus = (place) => {
+                if (place.rule.includes("已訂")) return { label: "已訂", className: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+                if (place.rule.includes("極度嚴格")) return { label: "需搶票", className: "bg-rose-50 text-rose-700 border-rose-200" };
+                if (place.rule.includes("強制") || place.rule.includes("需預約")) return { label: "需預約", className: "bg-amber-50 text-amber-700 border-amber-200" };
+                if (place.rule.includes("現場") || place.rule.includes("免費")) return { label: "可彈性", className: "bg-slate-100 text-slate-700 border-slate-200" };
+                return { label: "建議預約", className: "bg-blue-50 text-blue-700 border-blue-200" };
+            };
+
+            return (
+                <div className="space-y-8 animate-in fade-in duration-500">
+                    <section className="bg-slate-50 border border-slate-200 p-5 rounded-xl shadow-sm">
+                        <div className="flex items-center space-x-2 text-slate-800 font-bold mb-3">
+                            <CreditCardIcon className="w-6 h-6 text-blue-600" />
+                            <h2 className="text-lg">票務任務總覽</h2>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                            <div className="bg-white border border-slate-200 rounded-lg p-3">
+                                <div className="text-xs text-slate-500 mb-1">Museum Pass</div>
+                                <div className="text-lg font-bold text-slate-900">已購買 €{data.strategy.passCost}</div>
+                                <div className="text-xs text-slate-500 mt-1">4日券，現場取實體票</div>
+                            </div>
+                            <div className="bg-white border border-slate-200 rounded-lg p-3">
+                                <div className="text-xs text-slate-500 mb-1">覆蓋景點估算</div>
+                                <div className="text-lg font-bold text-slate-900">€{data.strategy.totalIndividualCost}</div>
+                                <div className="text-xs text-slate-500 mt-1">按目前行程單買總額</div>
+                            </div>
+                            <div className="bg-white border border-slate-200 rounded-lg p-3">
+                                <div className="text-xs text-slate-500 mb-1">理論節省</div>
+                                <div className="text-lg font-bold text-emerald-700">€{(data.strategy.totalIndividualCost - data.strategy.passCost).toFixed(1)}</div>
+                                <div className="text-xs text-slate-500 mt-1">仍以官方票價為準</div>
+                            </div>
+                        </div>
+                        <details className="mt-4">
+                            <summary className="cursor-pointer text-sm font-medium text-blue-700 hover:text-blue-900 list-none inline-flex items-center">
+                                <ChevronDownIcon className="w-4 h-4 mr-1 text-blue-500" />
+                                查看完整票務提醒
+                            </summary>
+                            <div className="mt-3 space-y-3 text-sm text-slate-700">
+                                <p className="leading-relaxed">{data.strategy.analysis}</p>
+                                <div className="bg-rose-50 border border-rose-200 rounded-md p-3">
+                                    <strong className="text-rose-900 flex items-center mb-1">
+                                        <AlertTriangleIcon className="text-rose-700 w-4 h-4 mr-1" />
+                                        提醒事項
+                                    </strong>
+                                    <p className="text-rose-800 leading-relaxed whitespace-pre-wrap">{data.strategy.warning}</p>
+                                </div>
+                            </div>
+                        </details>
+                    </section>
+
+                    <div className="space-y-6">
+                        {data.items.map((category, idx) => (
+                            <section key={idx}>
+                                <h3 className="text-md font-bold text-slate-800 mb-3 pl-1 border-l-4 border-blue-600">{category.category}</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {category.places.map((place, pIdx) => {
+                                        const status = getTicketStatus(place);
+                                        return (
+                                            <div key={pIdx} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col justify-between hover:border-blue-300 transition-colors">
+                                                <div>
+                                                    <div className="flex justify-between items-start gap-3 mb-3">
+                                                        <h4 className="font-bold text-slate-900 leading-snug">{place.name}</h4>
+                                                        <span className={`shrink-0 text-xs font-bold px-2 py-1 rounded border ${status.className}`}>{status.label}</span>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-2 mb-3">
+                                                        <div className="bg-slate-50 border border-slate-100 rounded p-2">
+                                                            <div className="text-[10px] text-slate-500 mb-0.5">單買票價</div>
+                                                            <div className="font-mono text-sm font-bold text-slate-900">{place.price}</div>
+                                                        </div>
+                                                        <div className="bg-slate-50 border border-slate-100 rounded p-2">
+                                                            <div className="text-[10px] text-slate-500 mb-0.5">處理時程</div>
+                                                            <div className="text-xs font-medium text-slate-700">{place.timing}</div>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-sm text-slate-600 leading-relaxed mb-4">{place.rule}</p>
+                                                </div>
+                                                <a href={place.link} target="_blank" rel="noopener noreferrer" className="w-full text-center bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-medium py-2 rounded-lg border border-blue-200 transition-colors inline-flex justify-center items-center">
+                                                    <TicketIcon className="w-4 h-4 mr-1.5" />
+                                                    官方網站
+                                                </a>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </section>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const PreparationView = ({ data }) => {
+            return (
+                <div className="space-y-8 animate-in fade-in duration-500">
+                    <section className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 md:p-6">
+                        <div className="flex items-start gap-3">
+                            <div className="bg-blue-50 text-blue-700 border border-blue-100 rounded-lg p-2 shrink-0">
+                                <ClipboardIcon className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-900 mb-2">夫婦二人事前準備</h2>
+                                <p className="text-sm text-slate-600 leading-relaxed">{data.intro}</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {data.timeline.map((block, idx) => (
+                            <div key={idx} className="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
+                                <div className="flex items-center justify-between gap-3 mb-3">
+                                    <span className="font-mono text-xs font-bold bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200">{block.period}</span>
+                                    <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-100">{block.focus}</span>
+                                </div>
+                                <ul className="space-y-2.5 text-sm text-slate-600">
+                                    {block.tasks.map((task, taskIdx) => (
+                                        <li key={taskIdx} className="flex items-start leading-relaxed">
+                                            <span className="mt-1.5 mr-2 h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0"></span>
+                                            <span>{task}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        ))}
+                    </section>
+
+                    <section className="bg-slate-50 border border-slate-200 rounded-xl shadow-sm p-5 md:p-6">
+                        <h3 className="text-md font-bold text-slate-900 mb-4">兩人分工建議</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {data.roles.map((role, idx) => (
+                                <div key={idx} className="bg-white border border-slate-200 rounded-lg p-4">
+                                    <div className="mb-3">
+                                        <h4 className="font-bold text-slate-900">{role.title}</h4>
+                                        <p className="text-xs text-slate-500 mt-1">{role.owner}</p>
+                                    </div>
+                                    <ul className="space-y-2 text-sm text-slate-600">
+                                        {role.tasks.map((task, taskIdx) => (
+                                            <li key={taskIdx} className="flex items-start leading-relaxed">
+                                                <span className="text-emerald-600 mr-2">✓</span>
+                                                <span>{task}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    <section>
+                        <h3 className="text-md font-bold text-slate-800 mb-3 pl-1 border-l-4 border-blue-600">行程日隨身包重點</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {data.dayKits.map((kit, idx) => (
+                                <div key={idx} className="bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+                                    <h4 className="font-bold text-slate-900 mb-3">{kit.title}</h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        {kit.items.map((item, itemIdx) => (
+                                            <span key={itemIdx} className="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full border border-slate-200">{item}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                </div>
+            );
+        };
+
+        const FoodGuideView = ({ data, activeDayNumber }) => {
+            const MealSection = ({ title, icon, items }) => {
+                if (!items || items.length === 0) return null;
+                const primaryItems = items.slice(0, 2);
+                const extraItems = items.slice(2);
+                return (
+                    <div className="mb-6 last:mb-0">
+                        <div className="flex items-center space-x-2 text-slate-800 font-bold mb-3 border-b border-slate-100 pb-2">
+                            {icon}
+                            <h4 className="text-sm">{title}</h4>
+                            <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-100 px-1.5 py-0.5 rounded">首選 + 備案</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {primaryItems.map((rest, rIdx) => (
+                                <div key={rIdx} className="border border-slate-200 rounded-lg p-3 bg-white hover:border-blue-300 hover:shadow-sm transition-all flex flex-col h-full">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h5 className="font-bold text-slate-900 text-sm leading-tight pr-2">{rest.name}</h5>
+                                        <div className="flex flex-col items-end shrink-0">
+                                            <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center">
+                                                <svg className="w-2.5 h-2.5 mr-0.5 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+                                                {rest.rating}
+                                            </span>
+                                            <span className="text-[9px] text-slate-400 mt-0.5">{rest.reviews} 評</span>
+                                        </div>
+                                    </div>
+                                    <span className="inline-block bg-slate-100 text-slate-600 text-[10px] px-1.5 py-0.5 rounded w-max mb-2 font-medium">{rest.type}</span>
+                                    <p className="text-xs text-slate-600 mb-3 leading-relaxed flex-grow">{rest.desc}</p>
+                                    <a href={rest.url} target="_blank" rel="noopener noreferrer" className="mt-auto inline-flex items-center justify-center w-full bg-slate-50 hover:bg-blue-50 text-[11px] font-medium text-slate-600 hover:text-blue-700 py-1.5 rounded border border-slate-200 hover:border-blue-200 transition-colors">
+                                        <MapPinIcon className="w-3 h-3 mr-1" />
+                                        Google Maps
+                                    </a>
+                                </div>
+                            ))}
+                        </div>
+                        {extraItems.length > 0 && (
+                            <details className="mt-3 group">
+                                <summary className="cursor-pointer text-xs font-medium text-blue-700 hover:text-blue-900 list-none inline-flex items-center">
+                                    <ChevronDownIcon className="w-3.5 h-3.5 mr-1 text-blue-500 group-open:rotate-180 transition-transform" />
+                                    顯示更多備案 ({extraItems.length})
+                                </summary>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+                                    {extraItems.map((rest, rIdx) => (
+                                        <div key={rIdx} className="border border-slate-200 rounded-lg p-3 bg-slate-50 flex flex-col h-full">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h5 className="font-bold text-slate-900 text-sm leading-tight pr-2">{rest.name}</h5>
+                                                <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold px-1.5 py-0.5 rounded">{rest.rating}</span>
+                                            </div>
+                                            <span className="inline-block bg-white text-slate-600 text-[10px] px-1.5 py-0.5 rounded w-max mb-2 font-medium border border-slate-200">{rest.type}</span>
+                                            <p className="text-xs text-slate-600 mb-3 leading-relaxed flex-grow">{rest.desc}</p>
+                                            <a href={rest.url} target="_blank" rel="noopener noreferrer" className="mt-auto inline-flex items-center justify-center w-full bg-white hover:bg-blue-50 text-[11px] font-medium text-slate-600 hover:text-blue-700 py-1.5 rounded border border-slate-200 hover:border-blue-200 transition-colors">
+                                                <MapPinIcon className="w-3 h-3 mr-1" />
+                                                Google Maps
+                                            </a>
+                                        </div>
+                                    ))}
+                                </div>
+                            </details>
+                        )}
+                    </div>
+                );
+            };
+
+            // Accordion Day Component
+            const DailyFoodSection = ({ dayItem, isInitiallyOpen }) => {
+                const [isOpen, setIsOpen] = useState(isInitiallyOpen);
+                const hasMeals = dayItem.meals.breakfast.length > 0 || dayItem.meals.lunch.length > 0 || dayItem.meals.dinner.length > 0;
+
+                return (
+                    <section className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-4">
+                        <button 
+                            onClick={() => setIsOpen(!isOpen)}
+                            className="w-full bg-slate-50 border-b border-slate-200 px-5 py-4 flex justify-between items-center hover:bg-slate-100 transition-colors text-left"
+                        >
+                            <div className="flex flex-col md:flex-row md:items-center gap-2">
+                                <h3 className="font-bold text-slate-800 text-base">{dayItem.date}</h3>
+                                <span className="text-xs font-medium text-slate-500 bg-slate-200 px-2 py-1 rounded w-max">動線區域：{dayItem.zone}</span>
+                            </div>
+                            <ChevronDownIcon className={`w-5 h-5 text-slate-400 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {isOpen && (
+                            <div className="p-5 animate-in slide-in-from-top-2 duration-200">
+                                {!hasMeals ? (
+                                    <div className="text-sm text-slate-500 flex items-center justify-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                                        <InfoIcon className="w-4 h-4 mr-2" /> 因航班排程物理受限，不提供該時段之市區餐飲推薦。
+                                    </div>
+                                ) : (
+                                    <>
+                                        {dayItem.meals.breakfast.length === 0 && dayItem.day === 1 && (
+                                            <div className="text-xs text-slate-400 mb-4 italic">※ 抵達日 (19:15 降落)，不提供早/午餐推薦。</div>
+                                        )}
+                                        <MealSection title="早餐 (Breakfast)" icon={<SunriseIcon className="w-4 h-4 text-orange-500" />} items={dayItem.meals.breakfast} />
+                                        <MealSection title="午餐 (Lunch)" icon={<SunIcon className="w-4 h-4 text-amber-500" />} items={dayItem.meals.lunch} />
+                                        <MealSection title="晚餐 (Dinner)" icon={<MoonIcon className="w-4 h-4 text-indigo-500" />} items={dayItem.meals.dinner} />
+                                        {dayItem.meals.lunch.length === 0 && dayItem.day === 9 && (
+                                            <div className="text-xs text-slate-400 mt-4 italic">※ 離境日 (09:00 前往機場)，不提供午/晚餐市區推薦。</div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </section>
+                );
+            };
+
+            return (
+                <div className="space-y-8 animate-in fade-in duration-500">
+                    <section className="bg-amber-50 border border-amber-200 p-4 rounded-xl shadow-sm">
+                        <div className="flex items-start space-x-2 text-amber-900">
+                            <UtensilsIcon className="w-5 h-5 text-amber-600 mt-0.5" />
+                            <div>
+                                <h2 className="text-base font-bold mb-1">用餐決策原則</h2>
+                                <p className="text-sm text-amber-800 leading-relaxed">每日推薦已綁定當日動線；高評名店若需排隊 45 分鐘以上，建議直接啟用備案，避免排擠已預約行程。</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <div>
+                        {data.map((dayItem) => (
+                            <DailyFoodSection 
+                                key={dayItem.day} 
+                                dayItem={dayItem} 
+                                isInitiallyOpen={dayItem.day === activeDayNumber} 
+                            />
+                        ))}
+                    </div>
+
+                    {/* 全局參考推薦區塊 */}
+                    <details className="bg-slate-900 border border-slate-800 rounded-xl shadow-lg overflow-hidden mt-8 print-break-inside-avoid">
+                        <summary className="cursor-pointer bg-slate-800 border-b border-slate-700 px-5 py-4 flex items-center justify-between list-none">
+                            <span className="font-bold text-white text-base flex items-center">
+                                <MapPinIcon className="w-5 h-5 mr-1 text-blue-400" />
+                                全局參考：巴黎指標性美食 20 選
+                            </span>
+                            <span className="text-xs text-slate-300">展開查看</span>
+                        </summary>
+                        <div className="px-5 pt-4">
+                            <p className="text-sm text-rose-200 bg-rose-900/40 border border-rose-800/50 p-3 rounded">此清單未綁定每日動線；若跨區追名店，請把單程 30-45 分鐘交通與排隊時間一併計入。</p>
+                        </div>
+                        <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {tripData.globalMustEats && tripData.globalMustEats.map((rest, rIdx) => (
+                                <div key={rIdx} className="border border-slate-700 rounded-lg p-4 bg-slate-800 hover:bg-slate-700 hover:border-blue-500 transition-all flex flex-col h-full">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h5 className="font-bold text-white text-sm leading-tight pr-2">{rest.name}</h5>
+                                        <span className="bg-slate-700 text-amber-400 border border-amber-500/30 text-[10px] font-bold px-1.5 py-0.5 rounded">{rest.rating}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="inline-block bg-blue-900/50 text-blue-300 border border-blue-800 text-[10px] px-1.5 py-0.5 rounded font-medium">{rest.zone}</span>
+                                        <span className="inline-block bg-slate-700 text-slate-300 text-[10px] px-1.5 py-0.5 rounded font-medium">{rest.type}</span>
+                                    </div>
+                                    <p className="text-xs text-slate-300 mb-4 leading-relaxed flex-grow">{rest.desc}</p>
+                                    <a href={rest.url} target="_blank" rel="noopener noreferrer" className="mt-auto inline-flex items-center justify-center w-full bg-slate-700 hover:bg-blue-600 text-[11px] font-medium text-white py-1.5 rounded border border-slate-600 hover:border-blue-500 transition-colors">
+                                        <MapPinIcon className="w-3 h-3 mr-1" />
+                                        Google Maps
+                                    </a>
+                                </div>
+                            ))}
+                        </div>
+                    </details>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [activeDay, setActiveDay] = useState(1);
+            const [isGlobalMapOpen, setIsGlobalMapOpen] = useState(false);
+            const [currentView, setCurrentView] = useState('overview');
+            const activeDayData = tripData.itinerary.find(day => day.day === activeDay) || tripData.itinerary[0];
+            const activeDayQuickItems = activeDayData.activities.filter(activity => activity.time && activity.desc).slice(0, 2);
+
+            const handleDayClick = (day) => {
+                setActiveDay(day);
+                setCurrentView('itinerary');
+            };
+
+            const closeGlobalMap = () => setIsGlobalMapOpen(false);
+
+            const openView = (view) => {
+                setIsGlobalMapOpen(false);
+                setCurrentView(view);
+            };
+
+            const showActiveDay = () => {
+                openView('itinerary');
+                window.setTimeout(() => {
+                    const detail = document.getElementById('daily-detail');
+                    if (detail) detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 0);
+            };
+
+            const mobileNavItems = [
+                { key: 'today', label: '今日', icon: <SunriseIcon className="w-5 h-5" />, action: showActiveDay, active: currentView === 'itinerary' },
+                { key: 'overview', label: '行程', icon: <CalendarIcon className="w-5 h-5" />, action: () => openView('overview'), active: currentView === 'overview' },
+                { key: 'ticketing', label: '票務', icon: <CreditCardIcon className="w-5 h-5" />, action: () => openView('ticketing'), active: currentView === 'ticketing' },
+                { key: 'food', label: '美食', icon: <UtensilsIcon className="w-5 h-5" />, action: () => openView('food'), active: currentView === 'food' },
+                { key: 'map', label: '地圖', icon: <MapIcon className="w-5 h-5" />, action: () => setIsGlobalMapOpen(prev => !prev), active: isGlobalMapOpen }
+            ];
+
+            return (
+                <div className="min-h-screen mobile-app-shell">
+                    <header className="bg-slate-900 text-white p-6 md:p-8 shadow-md relative print-break-inside-avoid">
+                        <div className="max-w-4xl mx-auto">
+                            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+                                <div>
+                                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-2">巴黎雙人行程規劃</h1>
+                                    <p className="text-slate-400 text-sm md:text-base">2026/5/14 — 2026/5/22 (8晚)</p>
+                                </div>
+                                <div className="flex flex-col sm:flex-row gap-2 no-print">
+                                    <button onClick={() => setIsGlobalMapOpen(true)} className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 border border-blue-600 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto">
+                                        <MapIcon className="w-4 h-4 mr-2" />
+                                        總覽景點地圖
+                                    </button>
+                                    <a href="https://www.ratp.fr/en/plans-lignes" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-sm font-medium transition-colors w-full sm:w-auto">
+                                        <MapIcon className="w-4 h-4 mr-2" />
+                                        RATP 官方即時路網
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <div className="hidden md:flex flex-wrap space-x-1 bg-slate-800 p-1 rounded-lg w-full">
+                                <button onClick={() => setCurrentView('overview')} className={`flex-1 py-2 px-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${currentView === 'overview' ? 'bg-white text-slate-900 shadow' : 'text-slate-300 hover:text-white hover:bg-slate-700'}`}>
+                                    <span className="flex items-center justify-center"><CalendarIcon className="w-4 h-4 mr-1.5" /> 行程總覽</span>
+                                </button>
+                                <button onClick={() => setCurrentView('itinerary')} className={`flex-1 py-2 px-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${currentView === 'itinerary' ? 'bg-white text-slate-900 shadow' : 'text-slate-300 hover:text-white hover:bg-slate-700'}`}>
+                                    <span className="flex items-center justify-center"><ClockIcon /> <span className="ml-1.5">每日規劃</span></span>
+                                </button>
+                                <button onClick={() => setCurrentView('preparation')} className={`flex-1 py-2 px-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${currentView === 'preparation' ? 'bg-white text-slate-900 shadow' : 'text-slate-300 hover:text-white hover:bg-slate-700'}`}>
+                                    <span className="flex items-center justify-center"><ClipboardIcon className="w-4 h-4 mr-1.5" /> 事前準備</span>
+                                </button>
+                                <button onClick={() => setCurrentView('ticketing')} className={`flex-1 py-2 px-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${currentView === 'ticketing' ? 'bg-white text-slate-900 shadow' : 'text-slate-300 hover:text-white hover:bg-slate-700'}`}>
+                                    <span className="flex items-center justify-center"><CreditCardIcon className="w-4 h-4 mr-1.5" /> 購票預約</span>
+                                </button>
+                                <button onClick={() => setCurrentView('food')} className={`flex-1 py-2 px-2 text-sm font-medium rounded-md transition-colors whitespace-nowrap ${currentView === 'food' ? 'bg-white text-slate-900 shadow' : 'text-slate-300 hover:text-white hover:bg-slate-700'}`}>
+                                    <span className="flex items-center justify-center"><UtensilsIcon className="w-4 h-4 mr-1.5" /> 美食推薦</span>
+                                </button>
+                            </div>
+
+                            <section className="md:hidden mt-4 bg-white/10 border border-white/10 rounded-2xl p-4">
+                                <div className="flex items-start justify-between gap-3 mb-3">
+                                    <div>
+                                        <div className="text-xs font-bold text-blue-200">旅行模式 / {activeDayData.date}</div>
+                                        <h2 className="text-lg font-bold mt-1">{activeDayData.title}</h2>
+                                    </div>
+                                    <div className="shrink-0 flex flex-col gap-2">
+                                        <button onClick={showActiveDay} className="bg-white text-slate-900 text-xs font-bold px-3 py-2 rounded-lg">
+                                            打開今日
+                                        </button>
+                                        <button onClick={() => setCurrentView('preparation')} className="bg-slate-800 text-white border border-white/10 text-xs font-bold px-3 py-2 rounded-lg">
+                                            事前準備
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    {activeDayQuickItems.map((activity, idx) => (
+                                        <button key={idx} onClick={showActiveDay} className="w-full text-left bg-slate-950/30 border border-white/10 rounded-xl p-3">
+                                            <div className="text-xs font-bold text-blue-200">{activity.time}</div>
+                                            <div className="text-sm text-white leading-snug mt-0.5">{activity.desc}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-[11px] text-slate-300 leading-relaxed mt-3">
+                                    iPhone 請用 Safari 開啟 HTTPS 版本，再用分享選單「加入主畫面」。
+                                </p>
+                            </section>
+                        </div>
+                    </header>
+
+                    <GlobalMapModal isOpen={isGlobalMapOpen} onClose={closeGlobalMap} onNavigate={openView} data={tripData} />
+
+                    <main className="max-w-4xl mx-auto p-4 md:p-8 space-y-8">
+                        {currentView === 'overview' && (
+                            <OverviewView data={tripData.itinerary} onDayClick={handleDayClick} />
+                        )}
+
+                        {currentView === 'itinerary' && (
+                            <div className="animate-in fade-in duration-500 space-y-8">
+                                <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm">
+                                        <div className="flex items-center space-x-2 text-slate-800 font-semibold mb-4 border-b border-slate-100 pb-2">
+                                            <PlaneIcon />
+                                            <h2>航班資訊 (經上海轉機)</h2>
+                                        </div>
+                                        <div className="space-y-4 text-sm text-slate-600">
+                                            <div>
+                                                <span className="font-bold text-slate-800">去程 (5/14)</span>
+                                                <ul className="mt-1.5 space-y-1.5">
+                                                    {tripData.logistics.flights.outbound.map((flight, idx) => (
+                                                        <li key={idx} className="flex justify-between items-center">
+                                                            <span>{flight.route} <span className="text-xs text-slate-400">({flight.flight})</span>:</span>
+                                                            <span className="font-medium text-slate-900">{flight.time}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                            <div className="border-t border-slate-100 pt-3">
+                                                <span className="font-bold text-slate-800">回程 (5/22 - 5/23)</span>
+                                                <ul className="mt-1.5 space-y-1.5">
+                                                    {tripData.logistics.flights.inbound.map((flight, idx) => (
+                                                        <li key={idx} className="flex justify-between items-center">
+                                                            <span>{flight.route} <span className="text-xs text-slate-400">({flight.flight})</span>:</span>
+                                                            <span className="font-medium text-slate-900">{flight.time}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm">
+                                        <div className="flex items-center space-x-2 text-slate-800 font-semibold mb-4 border-b border-slate-100 pb-2">
+                                            <HotelIcon />
+                                            <h2>住宿資訊</h2>
+                                        </div>
+                                        <ul className="space-y-3 text-sm text-slate-600">
+                                            <li className="flex justify-between">
+                                                <span>飯店名稱:</span>
+                                                <span className="font-medium text-slate-900">{tripData.logistics.hotel.name}</span>
+                                            </li>
+                                            <li className="flex justify-between flex-col">
+                                                <span className="mb-1">地址:</span>
+                                                <a href={tripData.logistics.hotel.mapUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline inline-flex items-center">
+                                                    <MapPinIcon />
+                                                    {tripData.logistics.hotel.address}
+                                                </a>
+                                            </li>
+                                            <li className="flex justify-between flex-col">
+                                                <span className="mb-1">區域優勢:</span>
+                                                <span className="font-medium text-slate-900">{tripData.logistics.hotel.zone}</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </section>
+
+                                <section id="daily-detail">
+                                    <div className="flex overflow-x-auto hide-scroll space-x-2 mb-6 pb-2 no-print">
+                                        {tripData.itinerary.map((item) => (
+                                            <button 
+                                                key={item.day}
+                                                onClick={() => setActiveDay(item.day)}
+                                                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                                                    activeDay === item.day 
+                                                    ? 'bg-slate-900 text-white' 
+                                                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                                }`}
+                                            >
+                                                {`${item.date.split('(')[0].trim()}(${item.day})`}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5 md:p-6 print-break-inside-avoid">
+                                        {tripData.itinerary.filter(d => d.day === activeDay).map(dayData => (
+                                            <div key={dayData.day}>
+                                                <div className="mb-6 border-b border-slate-100 pb-4">
+                                                    <h3 className="text-lg font-bold text-slate-900">{dayData.date} - {dayData.title}</h3>
+                                                </div>
+
+                                                <DaySummary dayData={dayData} />
+
+                                                {dayData.reminders && dayData.reminders.length > 0 && (
+                                                    <details className="mb-6 bg-blue-50/50 border border-blue-100 rounded-lg p-4">
+                                                        <summary className="cursor-pointer text-sm font-bold text-blue-900 flex items-center list-none">
+                                                            <InfoIcon /> 展開每日事實與風險提醒
+                                                        </summary>
+                                                        <ul className="list-disc pl-8 space-y-1.5 text-sm text-blue-800 mt-3">
+                                                            {dayData.reminders.map((reminder, rIdx) => (
+                                                                <li key={rIdx}>{reminder}</li>
+                                                            ))}
+                                                        </ul>
+                                                    </details>
+                                                )}
+
+                                                <div className="space-y-0">
+                                                    {dayData.activities.map((activity, idx) => (
+                                                        <ActivityItem key={idx} activity={activity} />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+                            </div>
+                        )}
+
+                        {currentView === 'ticketing' && (
+                            <TicketingView data={tripData.ticketing} />
+                        )}
+
+                        {currentView === 'preparation' && (
+                            <PreparationView data={tripData.preparation} />
+                        )}
+
+                        {currentView === 'food' && (
+                            <FoodGuideView data={tripData.foodGuide} activeDayNumber={activeDay} />
+                        )}
+                        
+                    </main>
+
+                    <nav className="md:hidden fixed left-0 right-0 bottom-0 z-[900] bg-white/95 backdrop-blur border-t border-slate-200 mobile-bottom-nav px-2 shadow-[0_-8px_28px_rgba(15,23,42,0.12)] no-print">
+                        <div className="grid grid-cols-5 gap-1">
+                            {mobileNavItems.map((item) => (
+                                <button
+                                    key={item.key}
+                                    onClick={item.action}
+                                    className={`flex flex-col items-center justify-center gap-1 rounded-xl py-2 text-[11px] font-bold transition-colors ${
+                                        item.active
+                                            ? 'text-blue-700 bg-blue-50'
+                                            : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    {item.icon}
+                                    <span>{item.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </nav>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+
+        if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+            });
+        }
+    </script>
+</body>
+</html>

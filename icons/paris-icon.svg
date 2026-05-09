@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Paris 2026 app icon">
+  <rect width="512" height="512" rx="112" fill="#0f172a"/>
+  <circle cx="384" cy="116" r="54" fill="#f8d36b"/>
+  <path d="M126 407h260" stroke="#e2e8f0" stroke-width="28" stroke-linecap="round"/>
+  <path d="M178 366h156" stroke="#94a3b8" stroke-width="24" stroke-linecap="round"/>
+  <path d="M256 94l-92 276h184L256 94Z" fill="none" stroke="#f8fafc" stroke-width="22" stroke-linejoin="round"/>
+  <path d="M208 220h96M194 270h124M180 320h152" stroke="#38bdf8" stroke-width="16" stroke-linecap="round"/>
+  <path d="M256 94v276" stroke="#f8fafc" stroke-width="18" stroke-linecap="round"/>
+  <path d="M216 408c12-35 25-58 40-58s28 23 40 58" fill="none" stroke="#f8fafc" stroke-width="22" stroke-linecap="round"/>
+  <text x="256" y="468" text-anchor="middle" font-family="Arial, sans-serif" font-size="42" font-weight="700" fill="#f8fafc">2026</text>
+</svg>
